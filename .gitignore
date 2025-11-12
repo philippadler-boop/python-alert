@@ -1,0 +1,16 @@
+# Python
+__pycache__/
+*.pyc
+venv/
+
+# Secrets / env
+.env
+*.env
+
+# Artifacts
+plots/
+spx_dip_alert_log.csv
+*.png
+
+# VS Code
+.vscode/
