@@ -2,7 +2,7 @@ name: SPX Dip Alert (Daily)
 
 on:
   schedule:
-    - cron: "30 15 * * *"  # Runs daily at 16:30 Europe/Berlin (15:30 UTC)
+    - cron: "30 15 * * 1-5"  # Runs daily at 16:30 Europe/Berlin (15:30 UTC)
   workflow_dispatch: {}     # Allows manual run from GitHub Actions tab
 
 jobs:
