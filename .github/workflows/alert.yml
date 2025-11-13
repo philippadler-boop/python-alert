@@ -37,7 +37,7 @@ jobs:
 
       - name: Run SPX Alert
         run: |
-          python spx_dip_alert_mail.py
+          python main.py
 
       - name: Upload logs and plots
         uses: actions/upload-artifact@v4

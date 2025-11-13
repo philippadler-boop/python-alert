@@ -44,7 +44,7 @@ jobs:
 
       - name: Run simulated bucket (produces email, plot, csv)
         run: |
-          python spx_dip_alert_mail.py --test-bucket "${{ github.event.inputs.bucket }}"
+          python main.py --test-bucket "${{ github.event.inputs.bucket }}"
 
       - name: Upload artifacts (plots & log)
         uses: actions/upload-artifact@v4
