@@ -2,7 +2,7 @@ name: SPX Dip Alert (Daily)
 
 on:
   schedule:
-    - cron: "0/5 * * * 1-5"  # Runs daily at 16:30 Europe/Berlin (15:30 UTC)
+    - cron: "30 15 * * 1-5"  # Runs daily at 16:30 Europe/Berlin (15:30 UTC)
 
 jobs:
   run-alert:
