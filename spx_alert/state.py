@@ -8,17 +8,7 @@ from .config import SPX_INDEX, IndexConfig
 
 
 def load_state(ix: IndexConfig = SPX_INDEX) -> Dict[str, Any]:
-    """Load JSON state from disk for a given index.
-
-    Structure:
-        {
-            "fired_buckets": {
-                "<peak_key>": ["B10", "B20"]
-            }
-        }
-
-    For now we only use SPX, but this is ready for more indices.
-    """
+    """Load JSON state from disk for a given index."""
     path = ix.state_file
     path.parent.mkdir(parents=True, exist_ok=True)
 

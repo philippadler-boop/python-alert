@@ -14,11 +14,7 @@ def make_alert_plot(
     series: pd.Series,
     title: str | None = None,
 ) -> Optional[Path]:
-    """Save a PNG plot of price + rolling high and return the path.
-
-    The plot is limited to the last ix.plot_lookback_days for readability.
-    If plotting fails or data is empty, returns None.
-    """
+    """Save a PNG plot of price + rolling high and return the path."""
     try:
         import matplotlib
 

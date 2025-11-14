@@ -12,17 +12,7 @@ from .config import SPX_INDEX, IndexConfig, now_str
 
 
 def fetch_series(ix: IndexConfig = SPX_INDEX) -> pd.Series:
-    """Fetch daily adjusted close series for the given index config.
-
-    Args:
-        ix: IndexConfig describing ticker and lookback horizon.
-
-    Returns:
-        A pandas Series of closing prices indexed by date.
-
-    Raises:
-        RuntimeError: If data cannot be fetched after retries.
-    """
+    """Fetch daily adjusted close series for the given index config."""
     end = dt.date.today()
     start = end - dt.timedelta(days=ix.lookback_days + 10)
     last_err: Optional[Exception] = None
@@ -59,16 +49,7 @@ def fetch_series(ix: IndexConfig = SPX_INDEX) -> pd.Series:
 
 
 def compute_drawdown(close: pd.Series) -> Tuple[float, float, float, pd.Timestamp]:
-    """Compute the current drawdown relative to the rolling max.
-
-    Args:
-        close: Series of closing prices.
-
-    Returns:
-        Tuple of (current_price, peak_value, drawdown_pct, peak_date).
-        - drawdown_pct is negative when below the peak.
-        - peak_date is the last date where the rolling max equals the close.
-    """
+    """Compute the current drawdown relative to the rolling max."""
     if isinstance(close, pd.DataFrame):
         close = close.iloc[:, -1]
 
@@ -79,7 +60,6 @@ def compute_drawdown(close: pd.Series) -> Tuple[float, float, float, pd.Timestam
     peak_value = float(rolling_max.iat[-1])
     dd = float(dd_pct.iat[-1])
 
-    # last peak date
     eq = (close.round(6) == rolling_max.round(6))
     peak_idx = eq[eq].index[-1]
 

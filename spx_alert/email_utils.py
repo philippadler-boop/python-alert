@@ -16,12 +16,12 @@ from email.utils import make_msgid
 
 import certifi
 
-from .config import DRY_RUN, INLINE_IMAGE, now_str
+from .config import DRY_RUN, INLINE_IMAGE, now_str, IndexConfig
 from .buckets import Bucket
 
 
 def build_html_email(
-    ticker: str,
+    ix: IndexConfig,
     close: float,
     peak: float,
     dd: float,
@@ -29,7 +29,7 @@ def build_html_email(
     bucket: Bucket,
     cid: Optional[str],
 ) -> str:
-    """Return a simple HTML version of the alert email."""
+    """Return an HTML version of the alert email for a given index."""
     lo, hi, note = bucket.lo, bucket.hi, bucket.note
     lo_s = f"{lo:.0f}%" if math.isfinite(lo) else "-∞"
     hi_s = f"{hi:.0f}%"
@@ -47,9 +47,9 @@ def build_html_email(
 <html>
   <body style="background:#ffffff;margin:0;padding:16px;">
     <div style="color:#111;font:14px/1.45 -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial;">
-      <h3 style="margin:0 0 12px 0;">SPX Dip Alert</h3>
+      <h3 style="margin:0 0 12px 0;">{ix.name} Dip Alert</h3>
       <table cellpadding="6" cellspacing="0" border="0" style="border-collapse:collapse;">
-        <tr><td><b>Ticker</b></td><td>{ticker}</td></tr>
+        <tr><td><b>Ticker</b></td><td>{ix.ticker}</td></tr>
         <tr><td><b>Close</b></td><td>{close:.2f}</td></tr>
         <tr><td><b>Recent High</b></td><td>{peak:.2f} (set {peak_date.date().isoformat()})</td></tr>
         <tr><td><b>Drawdown</b></td><td>{dd:.2f}%</td></tr>
@@ -64,18 +64,20 @@ def build_html_email(
 """
 
 
-def make_email_subject(bucket: Bucket, dd: float) -> str:
-    """Build a subject line including the bucket range and drawdown."""
+def make_email_subject(ix: IndexConfig, bucket: Bucket, dd: float) -> str:
+    """Build a subject line including the index id, bucket range and drawdown."""
     lo, hi = bucket.lo, bucket.hi
     if math.isfinite(lo):
         rng = f"{int(hi)}% to {int(lo)}%"
     else:
         rng = f"≤ {int(hi)}%"
-    return f"SPX DIP ALERT — {rng} (DD {dd:.2f}%)"
+
+    # e.g. "SPX DIP ALERT — -10% to -5% (DD -6.23%)"
+    return f"{ix.id.upper()} DIP ALERT — {rng} (DD {dd:.2f}%)"
 
 
 def make_email_body(
-    ticker: str,
+    ix: IndexConfig,
     close: float,
     peak: float,
     dd: float,
@@ -83,11 +85,11 @@ def make_email_body(
     bucket: Bucket,
     note: str = "",
 ) -> str:
-    """Plain-text body for the alert."""
+    """Plain-text body for the alert, index-aware."""
     lo, hi = bucket.lo, bucket.hi
     lines = [
-        "[SPX Dip Alert]",
-        f"Ticker: {ticker}",
+        f"[{ix.name} Dip Alert]",
+        f"Ticker: {ix.ticker}",
         f"Close: {close:.2f}",
         f"Recent High: {peak:.2f} (on {peak_date.date()})",
         f"Drawdown: {dd:.2f}%",
@@ -132,6 +134,7 @@ def send_email(
         cid = make_msgid()[1:-1]
 
     if html_kwargs:
+        # html_kwargs must include ix (IndexConfig) and the numeric fields
         html = build_html_email(**html_kwargs, cid=cid)
     else:
         html = (

@@ -4,13 +4,20 @@ from __future__ import annotations
 import argparse
 
 from spx_alert.buckets import DEFAULT_BUCKETS
+from spx_alert.config import INDEXES, DEFAULT_INDEX_ID
 from spx_alert.runner import run_from_args
 
 
 def parse_args() -> argparse.Namespace:
-    """Parse command line arguments for the SPX dip alert."""
+    """Parse command line arguments for the dip alert."""
     parser = argparse.ArgumentParser(
-        description="SPX Dip Alert — drawdown-based dip buying alerts."
+        description="Dip Alert — drawdown-based dip buying alerts."
+    )
+    parser.add_argument(
+        "--index",
+        choices=list(INDEXES.keys()),
+        default=DEFAULT_INDEX_ID,
+        help=f"Which index configuration to use (default: {DEFAULT_INDEX_ID}).",
     )
     parser.add_argument(
         "--test",

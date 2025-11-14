@@ -5,6 +5,7 @@ import os
 import datetime as dt
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Dict
 from zoneinfo import ZoneInfo
 
 from dotenv import load_dotenv
@@ -18,7 +19,7 @@ ROOT_DIR: Path = Path(__file__).resolve().parent.parent
 # Core settings (global knobs)
 # ---------------------------------------------------------------------
 
-# Which index to track (SPX by default)
+# Default SPX ticker (can be overridden via .env)
 INDEX_TICKER: str = os.getenv("INDEX_TICKER", "^GSPC")
 
 # How many calendar days of history to fetch
@@ -47,7 +48,7 @@ INLINE_IMAGE: bool = os.getenv("INLINE_IMAGE", "0") == "1"
 # How long to keep logs and plots
 RETENTION_DAYS: int = int(os.getenv("RETENTION_DAYS", "30"))
 
-# Ensure directories exist
+# Ensure base directories exist
 PLOTS_DIR.mkdir(parents=True, exist_ok=True)
 LOGS_DIR.mkdir(parents=True, exist_ok=True)
 STATE_DIR.mkdir(parents=True, exist_ok=True)
@@ -70,7 +71,10 @@ class IndexConfig:
     plots_dir: Path
 
 
-# For now we only have SPX, but this is ready to extend with more indices later.
+# ---------------------------------------------------------------------
+# Concrete index configurations
+# ---------------------------------------------------------------------
+
 SPX_INDEX: IndexConfig = IndexConfig(
     id="spx",
     name="S&P 500",
@@ -79,8 +83,34 @@ SPX_INDEX: IndexConfig = IndexConfig(
     plot_lookback_days=PLOT_LOOKBACK_DAYS,
     state_file=STATE_DIR / "spx_alert_state.json",
     log_csv=LOGS_DIR / "spx_dip_alert_log.csv",
-    plots_dir=PLOTS_DIR,
+    plots_dir=PLOTS_DIR / "spx",
 )
+
+NDX_INDEX: IndexConfig = IndexConfig(
+    id="ndx",
+    name="NASDAQ 100",
+    ticker=os.getenv("NDX_TICKER", "^NDX"),
+    lookback_days=LOOKBACK_DAYS,
+    plot_lookback_days=PLOT_LOOKBACK_DAYS,
+    state_file=STATE_DIR / "ndx_alert_state.json",
+    log_csv=LOGS_DIR / "ndx_dip_alert_log.csv",
+    plots_dir=PLOTS_DIR / "ndx",
+)
+
+# Registry of available indices
+INDEXES: Dict[str, IndexConfig] = {
+    "spx": SPX_INDEX,
+    "ndx": NDX_INDEX,
+}
+
+# Default index id
+DEFAULT_INDEX_ID: str = "spx"
+
+# Ensure per-index directories exist
+for ix in INDEXES.values():
+    ix.plots_dir.mkdir(parents=True, exist_ok=True)
+    ix.state_file.parent.mkdir(parents=True, exist_ok=True)
+    ix.log_csv.parent.mkdir(parents=True, exist_ok=True)
 
 
 def now(tz: ZoneInfo | None = None) -> dt.datetime:

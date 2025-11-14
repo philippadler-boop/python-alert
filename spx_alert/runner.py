@@ -8,7 +8,13 @@ import sys
 import smtplib
 import socket
 
-from .config import SPX_INDEX, IndexConfig, SAVE_PLOTS, now_str
+from .config import (
+    INDEXES,
+    DEFAULT_INDEX_ID,
+    IndexConfig,
+    SAVE_PLOTS,
+    now_str,
+)
 from .buckets import DEFAULT_BUCKETS, pick_bucket
 from .data import fetch_series, compute_drawdown
 from .state import load_state, save_state
@@ -43,7 +49,7 @@ def open_plot(plot_path) -> None:
 class DipAlertRunner:
     """Encapsulates the main dip-alert logic for a given index."""
 
-    def __init__(self, ix: IndexConfig = SPX_INDEX) -> None:
+    def __init__(self, ix: IndexConfig) -> None:
         self.ix = ix
 
     # ----------------- Test email -----------------
@@ -85,9 +91,10 @@ class DipAlertRunner:
         if show_plot:
             open_plot(plot_path)
 
-        subject = make_email_subject(bucket, dd)
+        # 🔹 dynamic subject & body
+        subject = make_email_subject(self.ix, bucket, dd)
         body = make_email_body(
-            self.ix.ticker,
+            self.ix,
             close,
             peak,
             dd,
@@ -96,7 +103,7 @@ class DipAlertRunner:
             "(SIMULATED ALERT)",
         )
         html_kwargs = dict(
-            ticker=self.ix.ticker,
+            ix=self.ix,
             close=close,
             peak=peak,
             dd=dd,
@@ -137,14 +144,17 @@ class DipAlertRunner:
 
         if not bucket:
             print(
-                f"[{now_str()}] No alert. DD {dd:.2f}% "
+                f"[{now_str()}] No alert. [{self.ix.id}] DD {dd:.2f}% "
                 f"(close {close:.2f}, peak {peak:.2f})."
             )
             return
 
         peak_key = str(peak_date.date())
         if bucket.id in state.get("fired_buckets", {}).get(peak_key, []):
-            print(f"[{now_str()}] Bucket {bucket.id} already fired for this peak.")
+            print(
+                f"[{now_str()}] [{self.ix.id}] Bucket {bucket.id} "
+                f"already fired for this peak."
+            )
             return
 
         plot_path = (
@@ -160,9 +170,10 @@ class DipAlertRunner:
         if show_plot:
             open_plot(plot_path)
 
-        subject = make_email_subject(bucket, dd)
+        # 🔹 dynamic subject & body
+        subject = make_email_subject(self.ix, bucket, dd)
         body = make_email_body(
-            self.ix.ticker,
+            self.ix,
             close,
             peak,
             dd,
@@ -170,7 +181,7 @@ class DipAlertRunner:
             bucket,
         )
         html_kwargs = dict(
-            ticker=self.ix.ticker,
+            ix=self.ix,
             close=close,
             peak=peak,
             dd=dd,
@@ -186,9 +197,9 @@ class DipAlertRunner:
                 attachments=[plot_path] if plot_path else None,
                 inline_path=plot_path,
             )
-            print(f"[{now_str()}] Alert sent.")
+            print(f"[{now_str()}] [{self.ix.id}] Alert sent.")
         except (smtplib.SMTPException, socket.timeout) as e:
-            print(f"[{now_str()}] ERROR sending email: {e}")
+            print(f"[{now_str()}] [{self.ix.id}] ERROR sending email: {e}")
             return
 
         append_csv_log(
@@ -205,12 +216,19 @@ class DipAlertRunner:
         )
         state.setdefault("fired_buckets", {}).setdefault(peak_key, []).append(bucket.id)
         save_state(state, self.ix)
-        print(f"[{now_str()}] Logged and state updated.")
+        print(f"[{now_str()}] [{self.ix.id}] Logged and state updated.")
 
 
 def run_from_args(args) -> None:
     """Entry point used by main.py to dispatch based on CLI args."""
-    ix = SPX_INDEX  # single index for now, but ready to extend
+    ix_id = getattr(args, "index", None) or DEFAULT_INDEX_ID
+
+    from .config import INDEXES  # avoid circular imports at module load
+    ix = INDEXES.get(ix_id)
+    if not ix:
+        available = ", ".join(INDEXES.keys())
+        print(f"[{now_str()}] Unknown index '{ix_id}'. Available: {available}")
+        return
 
     # housekeeping (per run, per index)
     clean_old_plots(ix.plots_dir)
