@@ -1,213 +1,244 @@
-# 📉 SPX Dip Alert — Automated Drawdown Email Notifications
+# Python Alert System (Dip Alerts + Trend Entry Alerts)
 
-This project monitors stock indices like the **S&P 500 (^GSPC)** and **NASDAQ 100 (^NDX)** and automatically sends email alerts whenever the market hits predefined **drawdown (“dip”) levels**.  
-It works both **locally** and fully **automated in GitHub Actions**, meaning alerts continue even when your PC is off.
+This tool monitors multiple market indices and sends alerts under two independent conditions:
 
-Alerts include:
-
-- Drawdown % from the most recent high  
-- Current index price  
-- Recent high + date  
-- Bucket triggered (–5%, –10%, –20%)  
-- Your dip-buying plan instructions  
-- Attached price chart  
-- CSV logging of all alerts  
+1. **Dip Alerts** – Triggered when drawdown reaches predefined buckets (e.g., -5%, -10%, -20%).
+2. **Trend Entry Alerts** – Triggered when price crosses from **below to above the 200-day MA** and remains above for **5 consecutive trading days**, serving as a reminder to review sector fundamentals before entering positions.
 
 ---
 
-## 🚨 Dip Trigger Levels
+## 🚀 Features
 
-By default (see `spx_alert/buckets.py`):
+### ✅ Dip Alerts (Bucket-based)
+- Computes drawdown relative to a configurable peak window:
+  - `1y` (last 365 days)
+  - `ytd`
+  - `date:YYYY-MM-DD` (e.g., investment start)
+- Bucket triggers configurable per index.
+- Email includes:
+  - Drawdown %
+  - Recent high
+  - Bucket plan
+  - Chart (inline or attached)
 
-| Drawdown Range | Bucket | Action |
-|----------------|--------|--------|
-| –5% to –8%     | B10    | Deploy **10%** of cash bucket |
-| –10% to –15%   | B20    | Deploy **20%** |
-| –20% or more   | B70    | Deploy remaining **70%** in weekly tranches |
-
-You can change these in `DEFAULT_BUCKETS`.
-
----
-
-## 📦 Features
-
-### ✔️ Drawdown Detection
-- Fetches daily data via `yfinance`
-- Computes drawdown from the latest rolling high
-- Robust retries + errors surfaced via `DataFetchError`
-
-### ✔️ Email Alerts (Gmail SMTP)
-- Sends a formatted alert email (plain-text + HTML)
-- Optional inline chart image (CID) and/or PNG attachment
-- Uses Gmail App Password (secure OAuth alternative)
-- `DRY_RUN` mode that prints instead of sending
-
-### ✔️ Logging
-- Per-index CSV log of all alerts  
-- Automatic cleanup of logs & plots older than `RETENTION_DAYS`
-
-### ✔️ GitHub Actions Automation
-- Runs automatically **Monday–Friday** at a fixed time (cron in UTC)  
-- Continues running even when your PC is off  
-- Supports manual test runs using `--test-bucket` or `--test`
+### ✅ Trend Entry Alerts (MA200-based)
+- Detects:
+  - MA200 cross **from below**
+  - **AND** stays above MA200 for 5 consecutive trading days.
+- Uses **checklist reminders** stored externally in:
+  ```
+  spx_alert/trend_checklists.json
+  ```
+- Emails contain:
+  - Price vs. MA200
+  - % distance above MA200
+  - Fundamentals checklist (TSMC CAPEX, PMI, AWS/Azure/Google CAPEX, etc.)
 
 ---
 
-# 🔧 Configuration
+## 📁 Supported Index Proxies
 
-Configuration is centralized in **`spx_alert/config.py`** and environment variables (usually via `.env`).
-
-### Core environment variables
-
-```env
-# Email / SMTP
-FROM_EMAIL=your@gmail.com
-TO_EMAIL=your@gmail.com
-APP_PASSWORD=your_app_password   # Gmail App Password (16 chars)
-
-# Behavior toggles
-DRY_RUN=0                        # 1 = log only, no emails
-SAVE_PLOTS=1                     # 1 = generate plots, 0 = skip
-INLINE_IMAGE=0                   # 1 = embed chart inline via CID
-ATTACH_PLOT_ON_TEST=1            # 1 = attach plot in test-bucket mode
-
-# Timezone & retention
-LOCAL_TZ=Europe/Berlin
-RETENTION_DAYS=365
-
-# Index settings (optional overrides)
-INDEX_TICKER=^GSPC               # default SPX ticker
-NDX_TICKER=^NDX                  # default NDX ticker
-LOOKBACK_DAYS=1095               # data lookback (days)
-PLOT_LOOKBACK_DAYS=180           # shorter window for plots
-
-# How to determine the "recent high" for drawdown
-# 1y  = last 365 days
-# ytd = since Jan 1 of current year
-# date:YYYY-MM-DD = custom anchor date (e.g. when you started investing)
-PEAK_WINDOW=1y
-
-# Optional custom dirs (defaults shown in config.py)
-# PLOTS_DIR=plots
-# STATE_DIR=state
-# LOGS_DIR=logs
-```
-
-> `.env` is **not committed** (ignored by `.gitignore`) so secrets stay local.
+| Index ID | Proxy Ticker | Sector / ETF |
+|----------|--------------|---------------|
+| `spx`    | ^GSPC        | S&P 500 |
+| `ndx`    | ^NDX         | Nasdaq 100 |
+| `sox`    | ^SOX         | Semiconductors (VanEck Semiconductor UCITS ETF) |
+| `srvr`   | SRVR         | Data Center REITs (Global X Data Center & Digital Infrastructure ETF) |
+| `ura`    | URA          | Uranium (WisdomTree Uranium & Nuclear Energy ETF) |
+| `remx`   | REMX         | Rare Earths & Strategic Metals ETF |
 
 ---
 
-# 🖥️ Running Locally
+## ⚙ Setup
 
-## 1️⃣ Create and activate virtualenv
+### 1. Create virtual environment
 
 ```bash
 python -m venv venv
-
-# Windows
-venv\Scripts\activate
-
-# macOS / Linux
-source venv/bin/activate
+source venv/bin/activate    # macOS/Linux
+venv\Scripts\activate     # Windows
 ```
 
-## 2️⃣ Install dependencies
+### 2. Install dependencies
 
 ```bash
 pip install -r requirements.txt
 ```
 
-## 3️⃣ Run a normal check
+---
+
+## 📦 Environment Variables (`.env`)
+
+```env
+# Email / SMTP
+FROM_EMAIL=your@gmail.com
+TO_EMAIL=your@gmail.com
+APP_PASSWORD=your_app_password
+
+# Behavior toggles
+DRY_RUN=0
+SAVE_PLOTS=1
+INLINE_IMAGE=0
+ATTACH_PLOT_ON_TEST=1
+
+# Timezone & retention
+LOCAL_TZ=Europe/Berlin
+RETENTION_DAYS=30
+
+# Index settings (optional overrides)
+LOOKBACK_DAYS=1095
+PLOT_LOOKBACK_DAYS=180
+
+# Peak window (dip alert mode)
+# Options: 1y, ytd, date:YYYY-MM-DD
+PEAK_WINDOW=1y
+
+# Optional custom dirs
+PLOTS_DIR=plots
+LOGS_DIR=logs
+STATE_DIR=state
+```
+
+---
+
+## 🧪 Running the Tool
+
+### **Dip Alerts**
+
+Run dip alert for a single index:
 
 ```bash
-python main.py
 python main.py --index spx
-python main.py --index ndx
 ```
 
-### Useful CLI flags
+Run dip alerts for all indices:
 
 ```bash
-python main.py --test
-python main.py --index spx --test-bucket B10
-python main.py --show-plot
+python main.py --index all
+```
 
-# Use default window from PEAK_WINDOW (e.g. 1y)
-python main.py --index remx
+Simulate a bucket (no state persistence):
 
-# Explicit 1-year peak window
-python main.py --index remx --peak-window 1y
+```bash
+python main.py --index spx --test-bucket B20
+```
 
-# Year-to-date peak
-python main.py --index remx --peak-window ytd
+SMTP wiring test:
 
-# From a specific investment date
-python main.py --index remx --peak-window date:2023-04-01
+```bash
+python main.py --index spx --test
+```
 
+Custom peak window:
+
+```bash
+python main.py --index sox --peak-window date:2023-04-01
 ```
 
 ---
 
-# 🧪 How Alerts Work
+### **Trend Entry Alerts**
 
-1. Fetch historical daily closes  
-2. Compute drawdown  
-3. Pick a bucket  
-4. Check state  
-5. Generate a plot  
-6. Send email  
-7. Log CSV  
-8. Update state  
+Run for one:
 
----
+```bash
+python main.py --index sox --trend-entry
+```
 
-# 🧬 Project Structure
+Run for all indices:
 
-```text
-python-alert/
-├── main.py
-├── requirements.txt
-├── README.md
-├── .env
-├── spx_alert/
-│   ├── config.py
-│   ├── exceptions.py
-│   ├── buckets.py
-│   ├── data.py
-│   ├── email_utils.py
-│   ├── logging_utils.py
-│   ├── plotting.py
-│   ├── runner.py
-│   └── state.py
-├── logs/
-├── plots/
-├── state/
-└── .github/
-    └── workflows/
-        └── alert.yml
+```bash
+python main.py --index all --trend-entry
 ```
 
 ---
 
-# 🔐 GitHub Secrets
+## 🧩 Trend Checklist Configuration
 
-| Secret | Value |
-|--------|--------|
-| FROM_EMAIL | Gmail address |
-| TO_EMAIL | Alert destination |
-| APP_PASSWORD | Gmail App Password |
+Edit:
+```
+spx_alert/trend_checklists.json
+```
+
+Example:
+
+```json
+{
+  "sox": [
+    "Check TSMC CAPEX guidance for 2026 (TSMC IR: https://investor.tsmc.com)",
+    "Check Samsung CAPEX guidance for 2026 (Samsung IR: https://www.samsung.com/global/ir/)",
+    "Check Electronics PMI ≥ 50 for 2 consecutive months (https://www.spglobal.com/marketintelligence/en/news-insights/latest-pmi)"
+  ]
+}
+```
+
+You may add: `srvr`, `ura`, `remx`, etc.
 
 ---
 
-# 📊 Outputs
+## 🧹 Git Ignore Recommendations
 
-Plots → `plots/<index>/`  
-Logs → `logs/<index>.csv`  
+```
+# Environment
+.env
+
+# Runtime files
+state/
+logs/
+plots/
+
+# OS garbage
+.DS_Store
+Thumbs.db
+```
 
 ---
 
-# 🔒 Security
+## 📡 GitHub Actions
 
-- `.env` ignored by git  
-- Gmail App Passwords  
-- Encrypted GitHub Secrets  
+To run all dip alerts daily:
+
+```yaml
+run: python main.py --index all
+```
+
+Trend entry daily check:
+
+```yaml
+run: python main.py --index all --trend-entry
+```
+
+Artifacts include logs & plots.
+
+---
+
+## 📊 Output
+
+- Email alert (dip or trend entry)
+- Optional attached chart
+- CSV log entries
+- Plots saved locally or uploaded by GitHub Actions
+
+---
+
+## 🧠 Future Additions
+
+- Cooldown window for trend entries  
+- Trend entry support for REMX  
+- Telegram/Slack integration  
+- Multi-timeframe trend checks  
+
+---
+
+## ✅ Summary
+
+Your system now supports **automated dip alerts + structured trend-entry signals**, including JSON-based fundamental checklists.  
+This enables consistent, rules-based staged entries into:
+
+- Semiconductors  
+- Data centers  
+- Uranium  
+- Rare earths  
+- Index ETFs (SPX, NDX)
+
+Ready for disciplined long-term allocation 🚀

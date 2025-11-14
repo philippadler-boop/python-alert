@@ -1,0 +1,24 @@
+{
+  "sox": [
+    "1) Check TSMC CAPEX guidance for 2026 (target: +5–15% YoY). Look for the latest earnings presentation and guidance slide in the Investor Relations section. TSMC IR: https://investor.tsmc.com",
+    "2) Check Samsung CAPEX guidance for 2026. Focus on semiconductor / foundry CAPEX, not total company CAPEX. Samsung IR (presentations, earnings releases): https://www.samsung.com/global/ir/",
+    "3) Check Electronics / Semiconductor PMI: is it at or above 50 for at least 2 consecutive months? Use the sector PMI reports, not just headline PMI. PMI overview and latest releases: https://www.spglobal.com/marketintelligence/en/news-insights/latest-pmi",
+    "4) Cross-check with a broad semiconductor ETF (e.g., SMH, SOXX) to confirm that the sector trend aligns with SOX. Example charting: https://www.tradingview.com/symbols/NASDAQ-SMH/"
+  ],
+  "srvr": [
+    "1) Check AWS revenue growth and segment commentary. Confirm that AWS YoY growth is stable or improving and that management commentary on AI/data center demand is positive. Amazon IR (AWS details in segment reporting): https://ir.aboutamazon.com",
+    "2) Check Microsoft Azure growth and Intelligent Cloud commentary. Look for re-acceleration or stable high growth in Azure and explicit commentary on AI infrastructure spending. Microsoft Investor Relations: https://www.microsoft.com/en-us/Investor",
+    "3) Check Google Cloud revenue growth and profitability trends. Confirm that Google Cloud is growing solidly and that management highlights sustained AI / data center investments. Alphabet IR: https://abc.xyz/investor/",
+    "4) Check hyperscaler CAPEX guidance (Amazon, Microsoft, Alphabet). Focus on CAPEX allocated to data centers, AI infrastructure, and servers. Look for YoY CAPEX trending up or staying elevated. Use recent earnings presentations and transcripts on each company’s IR site.",
+    "5) Check data center REITs / SRVR ETF price trend to confirm market sentiment. The SRVR ETF page or a charting platform can show whether data center REITs as a group are trending up along with the MA200 signal. Example charting: https://www.tradingview.com/symbols/NYSEARCA-SRVR/",
+    "6) Optional: review a broad US REIT or infrastructure index to ensure the move is not purely a rates-driven head-fake. Example ETF for comparison (VNQ): https://www.tradingview.com/symbols/NYSEARCA-VNQ/"
+  ],
+  "ura": [
+    "1) Check uranium spot price (UxC). Confirm that the latest U3O8 spot price is at or above your target threshold (for example 80 USD/lb) and that the recent trend is up rather than sharply rolling over. Official UxC site (requires access): https://www.uxc.com",
+    "2) Cross-check uranium price with public proxies (if you do not have UxC access), such as major uranium ETFs (URA, URNM) or indices to see if the price action confirms the spot trend. Example charting for URA: https://www.tradingview.com/symbols/NYSEARCA-URA/",
+    "3) Check global reactor build / construction backlog. Use the IAEA PRIS database to see the number of reactors under construction, planned, or proposed, and confirm that the medium- to long-term backlog is stable or increasing year-over-year. IAEA PRIS: https://pris.iaea.org",
+    "4) Review Cameco (CCJ) production guidance. Confirm that management is not signaling aggressive volume increases that could flood the market. Focus on production guidance sections and commentary on supply discipline. Cameco Investor Relations: https://www.cameco.com/invest/",
+    "5) Review Kazatomprom (KAP) production guidance and contract strategy. Look for signals that KAP is maintaining discipline and not rapidly ramping production into the spot market. Kazatomprom Investor Relations: https://kazatomprom.kz/en/investors",
+    "6) Check for major policy or regulatory developments affecting nuclear build-out (e.g., new country approvals, financing support, or large cancellations). News and analysis can be monitored via trusted financial news sources and the IAEA / WNA (World Nuclear Association). World Nuclear Association: https://world-nuclear.org"
+  ]
+}

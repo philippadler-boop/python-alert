@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import math
+import os
 import ssl
 from pathlib import Path
 from typing import List, Optional, Dict, Any
@@ -15,7 +16,7 @@ from email.utils import make_msgid
 
 import certifi
 
-from .config import DRY_RUN, INLINE_IMAGE, now_str, IndexConfig, get_email_config
+from .config import DRY_RUN, INLINE_IMAGE, now_str, IndexConfig
 from .buckets import Bucket
 
 
@@ -50,7 +51,7 @@ def build_html_email(
       <table cellpadding="6" cellspacing="0" border="0" style="border-collapse:collapse;">
         <tr><td><b>Ticker</b></td><td>{ix.ticker}</td></tr>
         <tr><td><b>Close</b></td><td>{close:.2f}</td></tr>
-        <tr><td><b>Recent High</b></td><td>{peak:.2f} (set {peak_date.date().isoformat()})</td></tr>
+        <tr><td><b>Recent High</</td><td>{peak:.2f} (set {peak_date.date().isoformat()})</td></tr>
         <tr><td><b>Drawdown</b></td><td>{dd:.2f}%</td></tr>
         <tr><td><b>Bucket</b></td><td>{hi_s} to {lo_s}</td></tr>
         <tr><td><b>Plan</b></td><td>{note}</td></tr>
@@ -60,7 +61,7 @@ def build_html_email(
     </div>
   </body>
 </html>
-"""
+"""  # noqa: E501
 
 
 def make_email_subject(ix: IndexConfig, bucket: Bucket, dd: float) -> str:
@@ -84,7 +85,7 @@ def make_email_body(
     bucket: Bucket,
     note: str = "",
 ) -> str:
-    """Plain-text body for the alert, index-aware."""
+    """Plain-text body for the dip alert, index-aware."""
     lo, hi = bucket.lo, bucket.hi
     lines = [
         f"[{ix.name} Dip Alert]",
@@ -101,6 +102,43 @@ def make_email_body(
     return "\n".join(lines)
 
 
+# ----------------- NEW: MA200 trend-entry emails -----------------
+
+
+def make_trend_entry_subject(ix: IndexConfig) -> str:
+    """Subject for MA200-based trend entry alert."""
+    return f"{ix.id.upper()} TREND ENTRY — Price above 200-day MA"
+
+
+def make_trend_entry_body(
+    ix: IndexConfig,
+    close: float,
+    ma200: float,
+    pct_diff: float,
+    hold_days: int,
+    checklist: List[str],
+) -> str:
+    """Plain-text body for MA200-based trend entry alerts."""
+    direction = "above" if pct_diff >= 0 else "below"
+    lines = [
+        f"[{ix.name} Trend Entry Setup]",
+        f"Ticker: {ix.ticker}",
+        f"Close: {close:.2f}",
+        f"200-day MA: {ma200:.2f}",
+        f"Distance: {pct_diff:.2f}% {direction} MA200",
+        "",
+        f"Condition: Close crossed from below to above the 200-day MA "
+        f"and stayed above for {hold_days} consecutive trading days.",
+        "",
+        "Next steps — manual checklist:",
+    ]
+    for item in checklist:
+        lines.append(f"- {item}")
+    lines.append("")
+    lines.append(f"Time: {now_str()}")
+    return "\n".join(lines)
+
+
 def send_email(
     subject: str,
     body_text: str,
@@ -110,11 +148,12 @@ def send_email(
     inline_path: Optional[Path] = None,
 ) -> None:
     """Send an email using Gmail SMTP with an App Password."""
-    # Centralized env handling
-    email_cfg = get_email_config()
-    from_email = email_cfg.from_email
-    to_email = email_cfg.to_email
-    app_pass = email_cfg.app_password
+    from_email = os.getenv("FROM_EMAIL")
+    to_email = os.getenv("TO_EMAIL")
+    app_pass = os.getenv("APP_PASSWORD")
+
+    if not (from_email and to_email and app_pass):
+        raise RuntimeError("Missing FROM_EMAIL / TO_EMAIL / APP_PASSWORD in environment")
 
     ctx = ssl.create_default_context()
     ctx.load_verify_locations(cafile=certifi.where())
@@ -164,15 +203,10 @@ def send_email(
         msg_root.attach(part)
 
     if DRY_RUN:
-        print(
-            f"[DRY_RUN] Would send '{subject}' "
-            f"(attachments={[p.name for p in (attachments or []) if p]})"
-        )
+        print(f"[{now_str()}] DRY_RUN=1 — email not sent. Subject: {subject}")
         return
 
-    with smtplib.SMTP("smtp.gmail.com", 587, timeout=20) as s:
-        s.ehlo()
-        s.starttls(context=ctx)
-        s.ehlo()
-        s.login(from_email, app_pass)
-        s.sendmail(from_email, [to_email], msg_root.as_string())
+    with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=ctx) as server:
+        server.login(from_email, app_pass)
+        server.send_message(msg_root)
+        print(f"[{now_str()}] Email sent to {to_email} (subject: {subject})")
