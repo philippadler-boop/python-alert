@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import math
 import os
-import ssl
 from pathlib import Path
 from typing import List, Optional, Dict, Any
 
@@ -13,8 +12,6 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.image import MIMEImage
 from email.mime.application import MIMEApplication
 from email.utils import make_msgid
-
-import certifi
 
 from .config import DRY_RUN, INLINE_IMAGE, now_str, IndexConfig
 from .buckets import Bucket
@@ -29,7 +26,7 @@ def build_html_email(
     bucket: Bucket,
     cid: Optional[str],
 ) -> str:
-    """Return an HTML version of the alert email for a given index."""
+    """Return an HTML version of the dip alert email for a given index."""
     lo, hi, note = bucket.lo, bucket.hi, bucket.note
     lo_s = f"{lo:.0f}%" if math.isfinite(lo) else "-∞"
     hi_s = f"{hi:.0f}%"
@@ -51,7 +48,7 @@ def build_html_email(
       <table cellpadding="6" cellspacing="0" border="0" style="border-collapse:collapse;">
         <tr><td><b>Ticker</b></td><td>{ix.ticker}</td></tr>
         <tr><td><b>Close</b></td><td>{close:.2f}</td></tr>
-        <tr><td><b>Recent High</</td><td>{peak:.2f} (set {peak_date.date().isoformat()})</td></tr>
+        <tr><td><b>Recent High</b></td><td>{peak:.2f} (set {peak_date.date().isoformat()})</td></tr>
         <tr><td><b>Drawdown</b></td><td>{dd:.2f}%</td></tr>
         <tr><td><b>Bucket</b></td><td>{hi_s} to {lo_s}</td></tr>
         <tr><td><b>Plan</b></td><td>{note}</td></tr>
@@ -102,12 +99,13 @@ def make_email_body(
     return "\n".join(lines)
 
 
-# ----------------- NEW: MA200 trend-entry emails -----------------
+# ----------------- MA200 trend-entry emails -----------------
 
 
-def make_trend_entry_subject(ix: IndexConfig) -> str:
+def make_trend_entry_subject(ix: IndexConfig, *, is_test: bool = False) -> str:
     """Subject for MA200-based trend entry alert."""
-    return f"{ix.id.upper()} TREND ENTRY — Price above 200-day MA"
+    base = f"{ix.id.upper()} TREND ENTRY — Price above 200-day MA"
+    return f"TEST — {base}" if is_test else base
 
 
 def make_trend_entry_body(
@@ -117,11 +115,13 @@ def make_trend_entry_body(
     pct_diff: float,
     hold_days: int,
     checklist: List[str],
+    *,
+    is_test: bool = False,
 ) -> str:
     """Plain-text body for MA200-based trend entry alerts."""
     direction = "above" if pct_diff >= 0 else "below"
     lines = [
-        f"[{ix.name} Trend Entry Setup]",
+        f"[{ix.name} Trend Entry Setup{' — TEST' if is_test else ''}]",
         f"Ticker: {ix.ticker}",
         f"Close: {close:.2f}",
         f"200-day MA: {ma200:.2f}",
@@ -147,7 +147,10 @@ def send_email(
     attachments: Optional[List[Path]] = None,
     inline_path: Optional[Path] = None,
 ) -> None:
-    """Send an email using Gmail SMTP with an App Password."""
+    """Send an email using SMTP (typically Gmail with App Password).
+
+    Honors DRY_RUN: if DRY_RUN=1, the email is not actually sent.
+    """
     from_email = os.getenv("FROM_EMAIL")
     to_email = os.getenv("TO_EMAIL")
     app_pass = os.getenv("APP_PASSWORD")
@@ -155,23 +158,22 @@ def send_email(
     if not (from_email and to_email and app_pass):
         raise RuntimeError("Missing FROM_EMAIL / TO_EMAIL / APP_PASSWORD in environment")
 
-    ctx = ssl.create_default_context()
-    ctx.load_verify_locations(cafile=certifi.where())
-
     msg_root = MIMEMultipart("mixed")
     msg_root["Subject"] = subject
     msg_root["From"] = from_email
     msg_root["To"] = to_email
 
+    # Plain-text part
     alt = MIMEMultipart("alternative")
     alt.attach(MIMEText(body_text, _subtype="plain", _charset="utf-8"))
 
-    cid = None
+    # Inline image support for dip plots
+    cid: Optional[str] = None
     if INLINE_IMAGE and inline_path and inline_path.exists():
-        cid = make_msgid()[1:-1]
+        cid = make_msgid()[1:-1]  # strip < >
 
+    # HTML part
     if html_kwargs:
-        # html_kwargs must include ix (IndexConfig) and the numeric fields
         html = build_html_email(**html_kwargs, cid=cid)
     else:
         html = (
@@ -182,7 +184,8 @@ def send_email(
 
     alt.attach(MIMEText(html, _subtype="html", _charset="utf-8"))
 
-    if INLINE_IMAGE and inline_path and inline_path.exists():
+    # If inline image is enabled, build a related part
+    if INLINE_IMAGE and inline_path and inline_path.exists() and cid:
         rel = MIMEMultipart("related")
         rel.attach(alt)
         with inline_path.open("rb") as f:
@@ -194,19 +197,22 @@ def send_email(
     else:
         msg_root.attach(alt)
 
+    # Attachments (plots, etc.)
     for p in attachments or []:
         if not p:
             continue
         with p.open("rb") as f:
-            part = MIMEApplication(f.read(), _subtype="png")
+            part = MIMEApplication(f.read(), _subtype="octet-stream")
         part.add_header("Content-Disposition", "attachment", filename=p.name)
         msg_root.attach(part)
 
+    # DRY_RUN: only log, don't send
     if DRY_RUN:
         print(f"[{now_str()}] DRY_RUN=1 — email not sent. Subject: {subject}")
         return
 
-    with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=ctx) as server:
+    # Simpler SSL handling: rely on system / Python defaults (what worked for you before)
+    with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
         server.login(from_email, app_pass)
         server.send_message(msg_root)
         print(f"[{now_str()}] Email sent to {to_email} (subject: {subject})")

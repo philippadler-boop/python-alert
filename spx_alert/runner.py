@@ -24,7 +24,7 @@ from .config import (
     PEAK_WINDOW_DEFAULT,
 )
 from .buckets import DEFAULT_BUCKETS, pick_bucket, Bucket, get_buckets_for_index
-from .data import fetch_series, compute_drawdown
+from .data import fetch_series, compute_drawdown, compute_trend_entry
 from .state import load_state, save_state
 from .plotting import make_alert_plot
 from .logging_utils import (
@@ -81,13 +81,10 @@ class TrendEntryProfile:
 
 
 TREND_PROFILES: Dict[str, TrendEntryProfile] = {
-    # Semiconductors — VanEck Semiconductor UCITS ETF (SOX proxy)
     "sox": TrendEntryProfile(id="sox"),
-    # Data Centers — Global X Data Center REITs & Digital Infrastructure (SRVR proxy)
     "srvr": TrendEntryProfile(id="srvr"),
-    # Uranium — WisdomTree Uranium & Nuclear Energy (URA proxy)
     "ura": TrendEntryProfile(id="ura"),
-    # You can add "remx" later if you want a trend entry for rare earths as well.
+    # Add "remx": TrendEntryProfile(id="remx") if you want a REMX trend-entry as well.
 }
 
 
@@ -99,7 +96,6 @@ def load_trend_checklists() -> dict[str, list[str]]:
     try:
         with CHECKLIST_FILE.open("r", encoding="utf-8") as f:
             data = json.load(f)
-        # Ensure it's a dict[str, list[str]]
         norm: dict[str, list[str]] = {}
         for k, v in data.items():
             if isinstance(v, list):
@@ -119,15 +115,13 @@ class DipAlertRunner:
     def __init__(self, ix: IndexConfig, peak_window: str) -> None:
         self.ix = ix
         self.peak_window = peak_window
-        # index-specific bucket set (spx, ndx, sox, srvr, ura, remx, ...)
         self.buckets = get_buckets_for_index(ix.id)
 
-    # ----------------- internal helpers (dip) -----------------
+    # ----------------- dip helpers -----------------
 
-    def _build_context(self) -> AlertContext:
-        """Fetch latest series and compute drawdown context."""
-        series = fetch_series(self.ix)
-        close, peak, dd, peak_date = compute_drawdown(series, self.peak_window)
+    def _build_context_from_series(self, series: pd.Series) -> AlertContext:
+        """Compute dip-alert context given a pre-fetched series."""
+        close, peak, dd, peak_date = compute_drawdown(series)
         return AlertContext(
             series=series,
             close=close,
@@ -136,9 +130,14 @@ class DipAlertRunner:
             peak_date=peak_date,
         )
 
+    def _build_context(self) -> AlertContext:
+        """Fetch latest series and compute drawdown context."""
+        series = fetch_series(self.ix)
+        return self._build_context_from_series(series)
+
     def _make_plot(self, ctx: AlertContext, *, title: str, show_plot: bool):
         """Create plot (if enabled) and optionally open it."""
-        plot_path: Optional[object] = None
+        plot_path: Optional[Path] = None
         if SAVE_PLOTS:
             plot_path = make_alert_plot(self.ix, ctx.series, title=title)
 
@@ -152,7 +151,7 @@ class DipAlertRunner:
         *,
         ctx: AlertContext,
         bucket: Bucket,
-        plot_path,
+        plot_path: Optional[Path],
         is_test: bool,
         extra_note: str = "",
     ) -> None:
@@ -176,10 +175,7 @@ class DipAlertRunner:
             bucket=bucket,
         )
 
-        # Attach plot only if:
-        # - we have a plot, AND
-        # - it's a live alert, OR test alerts are configured to attach
-        attachments = None
+        attachments: Optional[list[Path]] = None
         if plot_path and (not is_test or ATTACH_PLOT_ON_TEST):
             attachments = [plot_path]
 
@@ -211,7 +207,7 @@ class DipAlertRunner:
             is_test=is_test,
         )
 
-    # ----------------- Test email -----------------
+    # ----------------- dip test & normal runs -----------------
 
     def run_test_email(self) -> None:
         """Send a simple SMTP wiring test email (dip-alert mode)."""
@@ -222,10 +218,8 @@ class DipAlertRunner:
             f"Time: {now_str()}\n"
             "✓ SMTP connection successful."
         )
-        send_email(subject, body)
-        print(f"[{now_str()}] Test email sent.")
-
-    # ----------------- Test bucket -----------------
+        send_email(subject, body_text=body)
+        print(f"[{now_str()}] Dip test email sent.")
 
     def run_test_bucket(self, bucket_id: str, show_plot: bool) -> None:
         """Simulate a bucket being triggered without altering state."""
@@ -242,7 +236,6 @@ class DipAlertRunner:
             show_plot=show_plot,
         )
 
-        # Simulated alert, state not touched
         self._send_and_log(
             ctx=ctx,
             bucket=bucket,
@@ -252,12 +245,10 @@ class DipAlertRunner:
         )
         print(f"[{now_str()}] Test bucket email sent for {bucket.id}.")
 
-    # ----------------- Normal dip run -----------------
-
-    def run_normal(self, show_plot: bool) -> None:
-        """Perform a normal run: check current drawdown and alert if needed."""
+    def run_normal_with_series(self, series: pd.Series, show_plot: bool) -> None:
+        """Normal dip alert run using a pre-fetched series."""
         state = load_state(self.ix)
-        ctx = self._build_context()
+        ctx = self._build_context_from_series(series)
         bucket = pick_bucket(ctx.dd, self.buckets)
 
         if not bucket:
@@ -290,24 +281,26 @@ class DipAlertRunner:
                 is_test=False,
             )
         except Exception:
-            # Email failed; do not update state or log as fired.
             return
 
-        # Only mark bucket as fired if email was successfully sent
         state.setdefault("fired_buckets", {}).setdefault(peak_key, []).append(
             bucket.id
         )
         save_state(state, self.ix)
         print(f"[{now_str()}] [{self.ix.id}] Dip alert logged and state updated.")
 
-    # ----------------- MA200 Trend Entry -----------------
+    def run_normal(self, show_plot: bool) -> None:
+        """Normal dip alert run (fetches its own series)."""
+        series = fetch_series(self.ix)
+        self.run_normal_with_series(series, show_plot)
 
-    def run_trend_entry(self) -> None:
-        """Check MA200-based trend entry rule and email if newly satisfied.
+    # ----------------- trend-entry runs -----------------
 
-        Rule:
-          - Price crosses from BELOW to ABOVE 200-day MA
-          - AND stays above for `hold_days` consecutive trading days.
+    def run_trend_entry(self, series: Optional[pd.Series] = None, *, is_test: bool = False) -> None:
+        """Check MA200-based trend entry and email if conditions are met.
+
+        Uses compute_trend_entry() from data.py. If `series` is None,
+        fetches prices first.
         """
         profile = TREND_PROFILES.get(self.ix.id)
         if not profile or not profile.enabled:
@@ -316,62 +309,69 @@ class DipAlertRunner:
             )
             return
 
-        hold_days = profile.hold_days
-        ma_window = profile.ma_window
+        if series is None:
+            series = fetch_series(self.ix)
 
-        series = fetch_series(self.ix)
-        s = series.dropna()
-        if len(s) < ma_window + hold_days + 1:
-            print(
-                f"[{now_str()}] Not enough data for trend entry on '{self.ix.id}' "
-                f"(need at least {ma_window + hold_days + 1} points)."
+        try:
+            (
+                close_today,
+                ma_today,
+                pct_diff,
+                all_above,
+                crossed_from_below,
+                today_idx,
+            ) = compute_trend_entry(
+                series,
+                ma_window=profile.ma_window,
+                hold_days=profile.hold_days,
             )
+        except ValueError as e:
+            print(f"[{now_str()}] [{self.ix.id}] Trend entry not evaluated: {e}")
             return
-
-        ma = s.rolling(ma_window).mean()
-        ma = ma.dropna()
-        if ma.empty:
-            print(f"[{now_str()}] MA{ma_window} series empty for '{self.ix.id}'.")
-            return
-
-        # Align lengths (use intersection of indices)
-        s = s.loc[ma.index]
-        is_above = s > ma
-
-        if len(is_above) < hold_days + 1:
-            print(
-                f"[{now_str()}] Not enough data for trend entry window on '{self.ix.id}'."
-            )
-            return
-
-        # Last N+1 days
-        last_dates = is_above.index[-(hold_days + 1) :]
-        flags = is_above.loc[last_dates]
-
-        # last day is the evaluation day
-        today_idx = last_dates[-1]
-        last_n = flags.iloc[-hold_days:]  # last N days that must be above
-        prev_flag = flags.iloc[0]  # flag at day before the last N
-
-        all_above = bool(last_n.all())
-        crossed_from_below = (prev_flag is False) and all_above
-
-        close_today = float(s.loc[today_idx])
-        ma_today = float(ma.loc[today_idx])
-        pct_diff = (close_today / ma_today - 1.0) * 100.0
 
         # Load & update state
         state = load_state(self.ix)
         trend_state = state.get("trend_entry", {})
         last_alert_date = trend_state.get("last_alert_date")  # ISO string or None
 
-        # For informational purposes, track last status (above/below)
-        is_above_today = bool(is_above.loc[today_idx])
+        # Track last status (above/below) for info
+        is_above_today = pct_diff >= 0.0
         trend_state["last_status"] = "above" if is_above_today else "below"
 
-        # Decide whether to send a new alert
-        if not crossed_from_below:
-            # Condition not newly met today
+        today_iso = str(today_idx.date())
+
+        # Build checklist from JSON
+        checklists = load_trend_checklists()
+        checklist = checklists.get(
+            self.ix.id,
+            ["(No specific fundamentals checklist configured for this index.)"],
+        )
+
+        # For test mode: always send a test email with current metrics, no state change
+        if is_test:
+            subject = make_trend_entry_subject(self.ix, is_test=True)
+            body = make_trend_entry_body(
+                self.ix,
+                close_today,
+                ma_today,
+                pct_diff,
+                profile.hold_days,
+                checklist,
+                is_test=True,
+            )
+            try:
+                send_email(subject, body_text=body)
+                print(
+                    f"[{now_str()}] [{self.ix.id}] Trend-entry TEST email sent "
+                    f"(close {close_today:.2f}, MA{profile.ma_window} {ma_today:.2f})."
+                )
+            except (smtplib.SMTPException, socket.timeout) as e:
+                print(f"[{now_str()}] [{self.ix.id}] ERROR sending trend test email: {e}")
+            # Do not modify trend_state on test
+            return
+
+        # Live mode: only send when a new confirmed cross has occurred
+        if not (all_above and crossed_from_below):
             state["trend_entry"] = trend_state
             save_state(state, self.ix)
             print(
@@ -380,8 +380,6 @@ class DipAlertRunner:
             )
             return
 
-        # Avoid sending twice on the same day if the script is re-run
-        today_iso = str(today_idx.date())
         if last_alert_date == today_iso:
             state["trend_entry"] = trend_state
             save_state(state, self.ix)
@@ -390,40 +388,42 @@ class DipAlertRunner:
             )
             return
 
-        # Build checklist from JSON
-        all_checklists = load_trend_checklists()
-        checklist = all_checklists.get(
-            self.ix.id,
-            ["(No specific fundamentals checklist configured for this index.)"],
-        )
-
-        subject = make_trend_entry_subject(self.ix)
+        subject = make_trend_entry_subject(self.ix, is_test=False)
         body = make_trend_entry_body(
             self.ix,
             close_today,
             ma_today,
             pct_diff,
-            hold_days,
+            profile.hold_days,
             checklist,
+            is_test=False,
         )
 
         try:
             send_email(subject, body_text=body)
             print(
                 f"[{now_str()}] [{self.ix.id}] Trend entry alert sent "
-                f"(close {close_today:.2f}, MA{ma_window} {ma_today:.2f})."
+                f"(close {close_today:.2f}, MA{profile.ma_window} {ma_today:.2f})."
             )
         except (smtplib.SMTPException, socket.timeout) as e:
             print(f"[{now_str()}] [{self.ix.id}] ERROR sending trend email: {e}")
-            # Do not update alert date on failure
             state["trend_entry"] = trend_state
             save_state(state, self.ix)
             return
 
-        # Mark as alerted for today
         trend_state["last_alert_date"] = today_iso
         state["trend_entry"] = trend_state
         save_state(state, self.ix)
+
+    # ----------------- combined mode -----------------
+
+    def run_both(self, show_plot: bool) -> None:
+        """Run dip + trend-entry logic on the same fetched series."""
+        series = fetch_series(self.ix)
+        # Run dip alerts on this series
+        self.run_normal_with_series(series, show_plot)
+        # Run trend-entry check on the same data
+        self.run_trend_entry(series=series, is_test=False)
 
 
 # ----------------- Job orchestration -----------------
@@ -431,23 +431,31 @@ class DipAlertRunner:
 
 def _run_single_index(ix: IndexConfig, args, peak_window: str, *, mode: str) -> None:
     """Run the alert logic for a single index (including housekeeping)."""
-    # housekeeping (per run, per index)
     clean_old_plots(ix.plots_dir)
     clean_old_log_rows(ix)
 
     runner = DipAlertRunner(ix, peak_window=peak_window)
 
-    if mode == "trend":
-        runner.run_trend_entry()
+    if mode == "dip":
+        if args.test:
+            runner.run_test_email()
+        elif args.test_bucket:
+            runner.run_test_bucket(args.test_bucket, args.show_plot)
+        else:
+            runner.run_normal(args.show_plot)
         return
 
-    # dip-alert mode
-    if args.test:
-        runner.run_test_email()
-    elif args.test_bucket:
-        runner.run_test_bucket(args.test_bucket, args.show_plot)
-    else:
-        runner.run_normal(args.show_plot)
+    if mode == "trend":
+        if args.test:
+            runner.run_trend_entry(is_test=True)
+        else:
+            runner.run_trend_entry(is_test=False)
+        return
+
+    if mode == "both":
+        # Test / test-bucket not allowed in combined mode (validated earlier)
+        runner.run_both(args.show_plot)
+        return
 
 
 def run_from_args(args) -> None:
@@ -456,34 +464,54 @@ def run_from_args(args) -> None:
 
     from .config import INDEXES  # avoid circular imports at module load
 
-    # Determine peak window: CLI overrides env/DEFAULT (dip mode only)
     peak_window = getattr(args, "peak_window", None) or PEAK_WINDOW_DEFAULT
 
-    mode = "trend" if getattr(args, "trend_entry", False) else "dip"
+    # Determine mode: dip (default), trend-only, or both
+    trend_flag = getattr(args, "trend_entry", False)
+    both_flag = getattr(args, "both_modes", False)
+
+    if both_flag and trend_flag:
+        print(
+            f"[{now_str()}] Cannot use --trend-entry and --both-modes together. "
+            "Choose one mode."
+        )
+        return
+
+    if both_flag:
+        mode = "both"
+    elif trend_flag:
+        mode = "trend"
+    else:
+        mode = "dip"
+
+    # Validate incompatible combinations
+    if mode in ("trend", "both") and getattr(args, "test_bucket", None):
+        print(
+            f"[{now_str()}] --test-bucket is only valid in dip mode "
+            "(no --trend-entry / --both-modes)."
+        )
+        return
+
+    if mode == "both" and getattr(args, "test", False):
+        print(
+            f"[{now_str()}] --test is not supported in combined mode (--both-modes). "
+            "Use dip-only or trend-only for testing."
+        )
+        return
 
     if ix_id == "all":
-        # For safety, we do not support --test / --test-bucket with 'all'
-        if mode == "dip" and (args.test or args.test_bucket):
+        if getattr(args, "test", False) or getattr(args, "test_bucket", None):
             print(
-                f"[{now_str()}] '--index all' cannot be combined with "
-                "--test or --test-bucket. Please choose a specific index."
-            )
-            return
-        if mode == "trend" and (args.test or args.test_bucket):
-            print(
-                f"[{now_str()}] '--trend-entry' cannot be combined with "
-                "--test or --test-bucket."
+                f"[{now_str()}] '--index all' cannot be combined with --test or "
+                "--test-bucket. Choose a specific index."
             )
             return
 
-        # Run for all configured indices
         for ix_key, ix in INDEXES.items():
             print(f"[{now_str()}] Running {mode} mode for index '{ix_key}'...")
             _run_single_index(ix, args, peak_window=peak_window, mode=mode)
-
         return
 
-    # Single-index mode
     ix = INDEXES.get(ix_id)
     if not ix:
         available = ", ".join(INDEXES.keys())
