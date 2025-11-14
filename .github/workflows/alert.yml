@@ -8,23 +8,34 @@ jobs:
   run-alert:
     runs-on: ubuntu-latest
     env:
+      # Email / SMTP from GitHub Secrets
       FROM_EMAIL: ${{ secrets.FROM_EMAIL }}
       TO_EMAIL: ${{ secrets.TO_EMAIL }}
       APP_PASSWORD: ${{ secrets.APP_PASSWORD }}
 
-      # Core behavior
-      LOCAL_TZ: Europe/Berlin
-      LOOKBACK_DAYS: "1095"
+      # Behavior toggles
       DRY_RUN: "0"
       SAVE_PLOTS: "1"
       INLINE_IMAGE: "0"
-      PLOT_LOOKBACK_DAYS: "180"
-      RETENTION_DAYS: "30"
-      ATTACH_PLOT_ON_TEST: "0"
+      ATTACH_PLOT_ON_TEST: "0"         # usually 0 in daily prod runs
 
-      # Directories (match config.py)
+      # Timezone & retention
+      LOCAL_TZ: Europe/Berlin
+      RETENTION_DAYS: "30"
+
+      # Index settings (optional overrides)
+      INDEX_TICKER: "^GSPC"
+      NDX_TICKER: "^NDX"
+      LOOKBACK_DAYS: "1095"
+      PLOT_LOOKBACK_DAYS: "180"
+
+      # Recent-high window for drawdown
+      PEAK_WINDOW: "1y"
+
+      # Directories
       PLOTS_DIR: plots
       LOGS_DIR: logs
+      STATE_DIR: state
 
     steps:
       - name: Checkout code
