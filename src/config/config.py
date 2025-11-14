@@ -54,9 +54,9 @@ ATTACH_PLOT_ON_TEST: bool = os.getenv("ATTACH_PLOT_ON_TEST", "1") == "1"
 RETENTION_DAYS: int = int(os.getenv("RETENTION_DAYS", "30"))
 
 # Base directories
-PLOTS_DIR: Path = (ROOT_DIR / "plots").resolve()
-LOGS_DIR: Path = (ROOT_DIR / "logs").resolve()
-STATE_DIR: Path = (ROOT_DIR / "state").resolve()
+STATE_DIR: Path = (ROOT_DIR / "01_state").resolve()
+LOGS_DIR: Path = (ROOT_DIR / "02_logs").resolve()
+PLOTS_DIR: Path = (ROOT_DIR / "03_plots").resolve()
 
 # Plot lookback window (shorter window than fetch horizon)
 DIP_PLOT_LOOKBACK_DAYS = int(os.getenv("DIP_PLOT_LOOKBACK_DAYS", "180"))
