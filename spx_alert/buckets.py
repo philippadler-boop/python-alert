@@ -57,8 +57,8 @@ SRVR_BUCKETS: List[Bucket] = [
     ),
 ]
 
-# 3) Uranium miners (URA) — very high volatility, deep swings are normal
-URA_BUCKETS: List[Bucket] = [
+# 3) Sprott Physical Uranium (SRUUF) — very high volatility, deep swings are normal
+SRUUF_BUCKETS: List[Bucket] = [
     Bucket("B10", -20.0, -10.0, "Deploy 10% of Cash Bucket (uranium first buy)"),
     Bucket("B20", -40.0, -20.0, "Deploy 20% of Cash Bucket (uranium second buy)"),
     Bucket(
@@ -91,7 +91,7 @@ BUCKETS_BY_INDEX_ID: Dict[str, List[Bucket]] = {
     # New higher-vol names
     "sox": SOX_BUCKETS,
     "srvr": SRVR_BUCKETS,
-    "ura": URA_BUCKETS,
+    "sruuf": SRUUF_BUCKETS,
     "remx": REMX_BUCKETS,
 }
 

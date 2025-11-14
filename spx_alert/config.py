@@ -156,7 +156,7 @@ SRVR_INDEX: IndexConfig = IndexConfig(
     plots_dir=PLOTS_DIR / "srvr",
 )
 
-URA_INDEX: IndexConfig = IndexConfig(
+SRUUF_INDEX: IndexConfig = IndexConfig(
     id="sruuf",
     name="Sprott Physical Uranium",
     ticker="SRUUF",
@@ -183,7 +183,7 @@ INDEXES: Dict[str, IndexConfig] = {
     "ndx": NDX_INDEX,
     "sox": SOX_INDEX,
     "srvr": SRVR_INDEX,
-    "ura": URA_INDEX,
+    "sruuf": SRUUF_INDEX,
     "remx": REMX_INDEX,
 }
 
