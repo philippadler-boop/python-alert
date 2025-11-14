@@ -50,7 +50,7 @@ jobs:
 
       - name: Run simulated bucket (produces email, plot, csv)
         run: |
-          python main.py --inndex spx --test-bucket "${{ github.event.inputs.bucket }}"
+          python main.py --index spx --test-bucket "${{ github.event.inputs.bucket }}"
 
       - name: Upload artifacts (plots & log)
         uses: actions/upload-artifact@v4
