@@ -35,8 +35,8 @@ DEFAULT_BUCKETS: List[Bucket] = [
 
 # 1) Semiconductors (SOX) — more volatile than SPX, but still large-cap
 SOX_BUCKETS: List[Bucket] = [
-    Bucket("B10", -10.0, -7.0, "Deploy 10% of Cash Bucket (semis first tranche)"),
-    Bucket("B20", -20.0, -12.0, "Deploy 20% of Cash Bucket (semis second tranche)"),
+    Bucket("B10", -10.0, -7.0, "Deploy 10% of Cash Bucket (semis first buy)"),
+    Bucket("B20", -20.0, -12.0, "Deploy 20% of Cash Bucket (semis second buy)"),
     Bucket(
         "B70",
         -999.0,
@@ -47,8 +47,8 @@ SOX_BUCKETS: List[Bucket] = [
 
 # 2) Data center REITs / digital infra (SRVR) — somewhat more volatile than SPX
 SRVR_BUCKETS: List[Bucket] = [
-    Bucket("B10", -9.0, -6.0, "Deploy 10% of Cash Bucket (data centers)"),
-    Bucket("B20", -18.0, -12.0, "Deploy 20% of Cash Bucket (data centers)"),
+    Bucket("B10", -9.0, -6.0, "Deploy 10% of Cash Bucket (data centers first buy)"),
+    Bucket("B20", -18.0, -12.0, "Deploy 20% of Cash Bucket (data centers second buy)"),
     Bucket(
         "B70",
         -999.0,
@@ -65,7 +65,7 @@ URA_BUCKETS: List[Bucket] = [
         "B70",
         -999.0,
         -40.0,
-        "Deploy remaining 70% in weekly tranches (capitulation in uranium)",
+        "Deploy remaining 70% in weekly tranches (deep uranium drawdown)",
     ),
 ]
 
