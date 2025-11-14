@@ -42,11 +42,7 @@ jobs:
 
       - name: Run alerts for all indices
         run: |
-          python main.py --index spx
-          python main.py --index sox
-          python main.py --index srvr
-          python main.py --index ura
-          python main.py --index remx
+          python main.py --index all          
 
       - name: Upload logs and plots
         uses: actions/upload-artifact@v4
