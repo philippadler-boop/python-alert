@@ -59,7 +59,8 @@ LOGS_DIR: Path = (ROOT_DIR / "logs").resolve()
 STATE_DIR: Path = (ROOT_DIR / "state").resolve()
 
 # Plot lookback window (shorter window than fetch horizon)
-PLOT_LOOKBACK_DAYS: int = int(os.getenv("PLOT_LOOKBACK_DAYS", "180"))
+DIP_PLOT_LOOKBACK_DAYS = int(os.getenv("DIP_PLOT_LOOKBACK_DAYS", "180"))
+TREND_PLOT_LOOKBACK_DAYS = int(os.getenv("TREND_PLOT_LOOKBACK_DAYS", "30"))
 
 # Ensure base directories exist
 PLOTS_DIR.mkdir(parents=True, exist_ok=True)
@@ -78,7 +79,6 @@ class IndexConfig:
     name: str
     ticker: str
     lookback_days: int
-    plot_lookback_days: int
     state_file: Path
     log_csv: Path
     plots_dir: Path
@@ -121,8 +121,7 @@ SPX_INDEX: IndexConfig = IndexConfig(
     id="spx",
     name="S&P 500",
     ticker=INDEX_TICKER,
-    lookback_days=LOOKBACK_DAYS,
-    plot_lookback_days=PLOT_LOOKBACK_DAYS,
+    lookback_days=LOOKBACK_DAYS,    
     state_file=STATE_DIR / "spx_alert_state.json",
     log_csv=LOGS_DIR / "spx_dip_alert_log.csv",
     plots_dir=PLOTS_DIR / "spx",
@@ -132,8 +131,7 @@ NDX_INDEX: IndexConfig = IndexConfig(
     id="ndx",
     name="NASDAQ 100",
     ticker=NDX_TICKER,
-    lookback_days=LOOKBACK_DAYS,
-    plot_lookback_days=PLOT_LOOKBACK_DAYS,
+    lookback_days=LOOKBACK_DAYS,    
     state_file=STATE_DIR / "ndx_alert_state.json",
     log_csv=LOGS_DIR / "ndx_dip_alert_log.csv",
     plots_dir=PLOTS_DIR / "ndx",
@@ -142,8 +140,7 @@ SOX_INDEX: IndexConfig = IndexConfig(
     id="sox",
     name="PHLX Semiconductor",
     ticker="^SOX",
-    lookback_days=LOOKBACK_DAYS,
-    plot_lookback_days=PLOT_LOOKBACK_DAYS,
+    lookback_days=LOOKBACK_DAYS,    
     state_file=STATE_DIR / "sox_alert_state.json",
     log_csv=LOGS_DIR / "sox_dip_alert_log.csv",
     plots_dir=PLOTS_DIR / "sox",
@@ -153,30 +150,27 @@ SRVR_INDEX: IndexConfig = IndexConfig(
     id="srvr",
     name="Pacer Benchmark Data & Infrastructure Real Estate",
     ticker="SRVR",
-    lookback_days=LOOKBACK_DAYS,
-    plot_lookback_days=PLOT_LOOKBACK_DAYS,
+    lookback_days=LOOKBACK_DAYS,    
     state_file=STATE_DIR / "srvr_alert_state.json",
     log_csv=LOGS_DIR / "srvr_dip_alert_log.csv",
     plots_dir=PLOTS_DIR / "srvr",
 )
 
 URA_INDEX: IndexConfig = IndexConfig(
-    id="ura",
-    name="Global X Uranium",
-    ticker="URA",
-    lookback_days=LOOKBACK_DAYS,
-    plot_lookback_days=PLOT_LOOKBACK_DAYS,
-    state_file=STATE_DIR / "ura_alert_state.json",
-    log_csv=LOGS_DIR / "ura_dip_alert_log.csv",
-    plots_dir=PLOTS_DIR / "ura",
+    id="sruuf",
+    name="Sprott Physical Uranium",
+    ticker="SRUUF",
+    lookback_days=LOOKBACK_DAYS,    
+    state_file=STATE_DIR / "sruuf_alert_state.json",
+    log_csv=LOGS_DIR / "sruuf_dip_alert_log.csv",
+    plots_dir=PLOTS_DIR / "sruuf",
 )
 
 REMX_INDEX: IndexConfig = IndexConfig(
     id="remx",
     name="Rare Earth and Strategic Metals",
     ticker="REMX",
-    lookback_days=LOOKBACK_DAYS,
-    plot_lookback_days=PLOT_LOOKBACK_DAYS,
+    lookback_days=LOOKBACK_DAYS,    
     state_file=STATE_DIR / "remx_alert_state.json",
     log_csv=LOGS_DIR / "remx_dip_alert_log.csv",
     plots_dir=PLOTS_DIR / "remx",

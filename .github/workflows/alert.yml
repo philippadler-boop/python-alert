@@ -53,7 +53,7 @@ jobs:
 
       - name: Run alerts for all indices
         run: |
-          python main.py --index all          
+          python main.py --index all --both-modes         
 
       - name: Upload logs and plots
         uses: actions/upload-artifact@v4
