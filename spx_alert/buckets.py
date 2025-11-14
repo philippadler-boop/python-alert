@@ -1,8 +1,7 @@
-# spx_alert/buckets.py
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional, List
+from typing import Optional, List, Dict
 
 
 @dataclass(frozen=True)
@@ -19,12 +18,87 @@ class Bucket:
     note: str  # human-readable deployment rule
 
 
-# Default SPX buckets for dip buying
+# ---------------------------------------------------------------------
+# Baseline buckets (for broad equity indices like SPX / NDX)
+# ---------------------------------------------------------------------
+
 DEFAULT_BUCKETS: List[Bucket] = [
     Bucket("B10", -8.0, -5.0, "Deploy 10% of Cash Bucket"),
     Bucket("B20", -15.0, -10.0, "Deploy 20% of Cash Bucket"),
     Bucket("B70", -999.0, -20.0, "Deploy remaining 70% in weekly tranches"),
 ]
+
+
+# ---------------------------------------------------------------------
+# Index-specific buckets for higher-volatility tickers
+# ---------------------------------------------------------------------
+
+# 1) Semiconductors (SOX) — more volatile than SPX, but still large-cap
+SOX_BUCKETS: List[Bucket] = [
+    Bucket("B10", -10.0, -7.0, "Deploy 10% of Cash Bucket (semis first tranche)"),
+    Bucket("B20", -20.0, -12.0, "Deploy 20% of Cash Bucket (semis second tranche)"),
+    Bucket(
+        "B70",
+        -999.0,
+        -25.0,
+        "Deploy remaining 70% in weekly tranches (deep semi drawdown)",
+    ),
+]
+
+# 2) Data center REITs / digital infra (SRVR) — somewhat more volatile than SPX
+SRVR_BUCKETS: List[Bucket] = [
+    Bucket("B10", -9.0, -6.0, "Deploy 10% of Cash Bucket (data centers)"),
+    Bucket("B20", -18.0, -12.0, "Deploy 20% of Cash Bucket (data centers)"),
+    Bucket(
+        "B70",
+        -999.0,
+        -25.0,
+        "Deploy remaining 70% in weekly tranches (deep REIT drawdown)",
+    ),
+]
+
+# 3) Uranium miners (URA) — very high volatility, deep swings are normal
+URA_BUCKETS: List[Bucket] = [
+    Bucket("B10", -15.0, -10.0, "Deploy 10% of Cash Bucket (uranium first buy)"),
+    Bucket("B20", -30.0, -20.0, "Deploy 20% of Cash Bucket (uranium second buy)"),
+    Bucket(
+        "B70",
+        -999.0,
+        -40.0,
+        "Deploy remaining 70% in weekly tranches (capitulation in uranium)",
+    ),
+]
+
+# 4) Transition metals / rare earths (REMX) — also very volatile
+REMX_BUCKETS: List[Bucket] = [
+    Bucket("B10", -15.0, -10.0, "Deploy 10% of Cash Bucket (metals first buy)"),
+    Bucket("B20", -30.0, -20.0, "Deploy 20% of Cash Bucket (metals second buy)"),
+    Bucket(
+        "B70",
+        -999.0,
+        -40.0,
+        "Deploy remaining 70% in weekly tranches (deep metals drawdown)",
+    ),
+]
+
+
+# Registry mapping index ids (config.id) → bucket set
+BUCKETS_BY_INDEX_ID: Dict[str, List[Bucket]] = {
+    # Baseline: SPX / NDX
+    "spx": DEFAULT_BUCKETS,
+    "ndx": DEFAULT_BUCKETS,
+
+    # New higher-vol names
+    "sox": SOX_BUCKETS,
+    "srvr": SRVR_BUCKETS,
+    "ura": URA_BUCKETS,
+    "remx": REMX_BUCKETS,
+}
+
+
+def get_buckets_for_index(ix_id: str) -> List[Bucket]:
+    """Return bucket list for a given index id, defaulting to baseline."""
+    return BUCKETS_BY_INDEX_ID.get(ix_id, DEFAULT_BUCKETS)
 
 
 def pick_bucket(dd: float, buckets: List[Bucket] = DEFAULT_BUCKETS) -> Optional[Bucket]:

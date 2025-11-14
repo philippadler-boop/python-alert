@@ -18,7 +18,7 @@ from .config import (
     ATTACH_PLOT_ON_TEST,
     now_str,
 )
-from .buckets import DEFAULT_BUCKETS, pick_bucket, Bucket
+from .buckets import DEFAULT_BUCKETS, pick_bucket, Bucket, get_buckets_for_index
 from .data import fetch_series, compute_drawdown
 from .state import load_state, save_state
 from .plotting import make_alert_plot
@@ -65,6 +65,8 @@ class DipAlertRunner:
 
     def __init__(self, ix: IndexConfig) -> None:
         self.ix = ix
+        # pick bucket set based on index id (spx, sox, srvr, ura, remx, ...)
+        self.buckets = get_buckets_for_index(ix.id)
 
     # ----------------- internal helpers -----------------
 
@@ -177,7 +179,7 @@ class DipAlertRunner:
         """Simulate a bucket being triggered without altering state."""
         ctx = self._build_context()
 
-        bucket = next((b for b in DEFAULT_BUCKETS if b.id == bucket_id), None)
+        bucket = next((b for b in self.buckets if b.id == bucket_id), None)
         if bucket is None:
             print(f"[{now_str()}] Unknown bucket {bucket_id}")
             return
@@ -204,7 +206,7 @@ class DipAlertRunner:
         """Perform a normal run: check current drawdown and alert if needed."""
         state = load_state(self.ix)
         ctx = self._build_context()
-        bucket = pick_bucket(ctx.dd, DEFAULT_BUCKETS)
+        bucket = pick_bucket(ctx.dd, self.buckets)
 
         if not bucket:
             print(
