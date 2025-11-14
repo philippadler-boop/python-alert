@@ -38,9 +38,7 @@ LOGS_DIR: Path = (ROOT_DIR / "logs").resolve()
 STATE_DIR: Path = (ROOT_DIR / "state").resolve()
 
 # Derived paths
-LOG_CSV: Path = Path(
-    os.getenv("LOG_CSV", LOGS_DIR / "spx_dip_alert_log.csv")
-).resolve()
+LOG_CSV = (LOGS_DIR / "spx_dip_alert_log.csv").resolve()
 
 PLOT_LOOKBACK_DAYS: int = int(os.getenv("PLOT_LOOKBACK_DAYS", "180"))
 
