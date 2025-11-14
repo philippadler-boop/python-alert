@@ -59,7 +59,7 @@ Configuration is centralized in **`spx_alert/config.py`** and environment variab
 
 ### Core environment variables
 
-````env
+```env
 # Email / SMTP
 FROM_EMAIL=your@gmail.com
 TO_EMAIL=your@gmail.com
@@ -85,7 +85,7 @@ PLOT_LOOKBACK_DAYS=180           # shorter window for plots
 # PLOTS_DIR=plots
 # STATE_DIR=state
 # LOGS_DIR=logs
-````
+```
 
 > `.env` is **not committed** (ignored by `.gitignore`) so secrets stay local.
 
