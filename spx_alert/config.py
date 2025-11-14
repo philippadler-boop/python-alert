@@ -22,6 +22,9 @@ ROOT_DIR: Path = Path(__file__).resolve().parent.parent
 # Default SPX ticker (can be overridden via .env)
 INDEX_TICKER: str = os.getenv("INDEX_TICKER", "^GSPC")
 
+# Optional extra index ticker
+NDX_TICKER: str = os.getenv("NDX_TICKER", "^NDX")
+
 # How many calendar days of history to fetch
 LOOKBACK_DAYS: int = int(os.getenv("LOOKBACK_DAYS", "1095"))
 
@@ -34,6 +37,15 @@ DRY_RUN: bool = os.getenv("DRY_RUN", "0") == "1"
 # Whether to generate plots at all
 SAVE_PLOTS: bool = os.getenv("SAVE_PLOTS", "1") == "1"
 
+# HTML e-mail options
+INLINE_IMAGE: bool = os.getenv("INLINE_IMAGE", "0") == "1"
+
+# Attach plot also in test mode? (for future use / clarity)
+ATTACH_PLOT_ON_TEST: bool = os.getenv("ATTACH_PLOT_ON_TEST", "1") == "1"
+
+# How long to keep logs and plots
+RETENTION_DAYS: int = int(os.getenv("RETENTION_DAYS", "30"))
+
 # Base directories
 PLOTS_DIR: Path = Path(os.getenv("PLOTS_DIR", ROOT_DIR / "plots")).resolve()
 LOGS_DIR: Path = (ROOT_DIR / "logs").resolve()
@@ -41,12 +53,6 @@ STATE_DIR: Path = (ROOT_DIR / "state").resolve()
 
 # Plot lookback window (shorter window than fetch horizon)
 PLOT_LOOKBACK_DAYS: int = int(os.getenv("PLOT_LOOKBACK_DAYS", "180"))
-
-# HTML e-mail options
-INLINE_IMAGE: bool = os.getenv("INLINE_IMAGE", "0") == "1"
-
-# How long to keep logs and plots
-RETENTION_DAYS: int = int(os.getenv("RETENTION_DAYS", "30"))
 
 # Ensure base directories exist
 PLOTS_DIR.mkdir(parents=True, exist_ok=True)
@@ -71,6 +77,35 @@ class IndexConfig:
     plots_dir: Path
 
 
+@dataclass(frozen=True)
+class EmailConfig:
+    """SMTP email settings loaded from environment variables."""
+
+    from_email: str
+    to_email: str
+    app_password: str
+
+
+def get_email_config() -> EmailConfig:
+    """Load email config from environment in a centralized place.
+
+    Raises:
+        RuntimeError: if any required variable is missing.
+    """
+    from_email = os.getenv("FROM_EMAIL")
+    to_email = os.getenv("TO_EMAIL")
+    app_pass = os.getenv("APP_PASSWORD")
+
+    if not (from_email and to_email and app_pass):
+        raise RuntimeError(
+            "Missing FROM_EMAIL / TO_EMAIL / APP_PASSWORD in environment"
+        )
+
+    # Strip spaces just once here; Gmail app passwords often have spaces
+    app_pass = app_pass.replace(" ", "")
+    return EmailConfig(from_email=from_email, to_email=to_email, app_password=app_pass)
+
+
 # ---------------------------------------------------------------------
 # Concrete index configurations
 # ---------------------------------------------------------------------
@@ -89,7 +124,7 @@ SPX_INDEX: IndexConfig = IndexConfig(
 NDX_INDEX: IndexConfig = IndexConfig(
     id="ndx",
     name="NASDAQ 100",
-    ticker=os.getenv("NDX_TICKER", "^NDX"),
+    ticker=NDX_TICKER,
     lookback_days=LOOKBACK_DAYS,
     plot_lookback_days=PLOT_LOOKBACK_DAYS,
     state_file=STATE_DIR / "ndx_alert_state.json",

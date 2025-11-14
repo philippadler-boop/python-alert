@@ -7,6 +7,8 @@ import subprocess
 import sys
 import smtplib
 import socket
+from dataclasses import dataclass
+from typing import Optional
 
 from .config import (
     INDEXES,
@@ -15,7 +17,7 @@ from .config import (
     SAVE_PLOTS,
     now_str,
 )
-from .buckets import DEFAULT_BUCKETS, pick_bucket
+from .buckets import DEFAULT_BUCKETS, pick_bucket, Bucket
 from .data import fetch_series, compute_drawdown
 from .state import load_state, save_state
 from .plotting import make_alert_plot
@@ -46,11 +48,106 @@ def open_plot(plot_path) -> None:
         print(f"[{now_str()}] Unable to open plot viewer: {e}")
 
 
+@dataclass
+class AlertContext:
+    """Values needed to construct an alert for a given index snapshot."""
+
+    series: object
+    close: float
+    peak: float
+    dd: float
+    peak_date: object  # pandas.Timestamp-like, but we keep it generic
+
+
 class DipAlertRunner:
     """Encapsulates the main dip-alert logic for a given index."""
 
     def __init__(self, ix: IndexConfig) -> None:
         self.ix = ix
+
+    # ----------------- internal helpers -----------------
+
+    def _build_context(self) -> AlertContext:
+        """Fetch latest series and compute drawdown context."""
+        series = fetch_series(self.ix)
+        close, peak, dd, peak_date = compute_drawdown(series)
+        return AlertContext(
+            series=series,
+            close=close,
+            peak=peak,
+            dd=dd,
+            peak_date=peak_date,
+        )
+
+    def _make_plot(self, ctx: AlertContext, *, title: str, show_plot: bool):
+        """Create plot (if enabled) and optionally open it."""
+        plot_path: Optional[object] = None
+        if SAVE_PLOTS:
+            plot_path = make_alert_plot(self.ix, ctx.series, title=title)
+
+        if show_plot:
+            open_plot(plot_path)
+
+        return plot_path
+
+    def _send_and_log(
+        self,
+        *,
+        ctx: AlertContext,
+        bucket: Bucket,
+        plot_path,
+        is_test: bool,
+        extra_note: str = "",
+    ) -> None:
+        """Compose email from context + bucket, send it, and log the event."""
+        subject = make_email_subject(self.ix, bucket, ctx.dd)
+        body = make_email_body(
+            self.ix,
+            ctx.close,
+            ctx.peak,
+            ctx.dd,
+            ctx.peak_date,
+            bucket,
+            note=extra_note,
+        )
+        html_kwargs = dict(
+            ix=self.ix,
+            close=ctx.close,
+            peak=ctx.peak,
+            dd=ctx.dd,
+            peak_date=ctx.peak_date,
+            bucket=bucket,
+        )
+
+        try:
+            send_email(
+                subject,
+                body_text=body,
+                html_kwargs=html_kwargs,
+                attachments=[plot_path] if plot_path else None,
+                inline_path=plot_path,
+            )
+            tag = "TEST" if is_test else "LIVE"
+            print(f"[{now_str()}] [{self.ix.id}] {tag} alert sent.")
+        except (smtplib.SMTPException, socket.timeout) as e:
+            print(f"[{now_str()}] [{self.ix.id}] ERROR sending email: {e}")
+            # In test mode we just log to console; in live mode the caller
+            # will decide whether to proceed with state updates.
+            if not is_test:
+                raise
+
+        append_csv_log(
+            self.ix,
+            now_str(),
+            bucket,
+            ctx.dd,
+            ctx.close,
+            ctx.peak,
+            str(ctx.peak_date.date()),
+            plot_path,
+            self.ix.ticker,
+            is_test=is_test,
+        )
 
     # ----------------- Test email -----------------
 
@@ -70,66 +167,26 @@ class DipAlertRunner:
 
     def run_test_bucket(self, bucket_id: str, show_plot: bool) -> None:
         """Simulate a bucket being triggered without altering state."""
-        series = fetch_series(self.ix)
-        close, peak, dd, peak_date = compute_drawdown(series)
+        ctx = self._build_context()
 
         bucket = next((b for b in DEFAULT_BUCKETS if b.id == bucket_id), None)
         if bucket is None:
             print(f"[{now_str()}] Unknown bucket {bucket_id}")
             return
 
-        plot_path = (
-            make_alert_plot(
-                self.ix,
-                series,
-                title=f"{self.ix.name} — Close vs Recent High (TEST)",
-            )
-            if SAVE_PLOTS
-            else None
+        plot_path = self._make_plot(
+            ctx,
+            title=f"{self.ix.name} — Close vs Recent High (TEST)",
+            show_plot=show_plot,
         )
 
-        if show_plot:
-            open_plot(plot_path)
-
-        # 🔹 dynamic subject & body
-        subject = make_email_subject(self.ix, bucket, dd)
-        body = make_email_body(
-            self.ix,
-            close,
-            peak,
-            dd,
-            peak_date,
-            bucket,
-            "(SIMULATED ALERT)",
-        )
-        html_kwargs = dict(
-            ix=self.ix,
-            close=close,
-            peak=peak,
-            dd=dd,
-            peak_date=peak_date,
+        # Simulated alert, state not touched
+        self._send_and_log(
+            ctx=ctx,
             bucket=bucket,
-        )
-
-        send_email(
-            subject,
-            body_text=body,
-            html_kwargs=html_kwargs,
-            attachments=[plot_path] if plot_path else None,
-            inline_path=plot_path,
-        )
-
-        append_csv_log(
-            self.ix,
-            now_str(),
-            bucket,
-            dd,
-            close,
-            peak,
-            str(peak_date.date()),
-            plot_path,
-            self.ix.ticker,
+            plot_path=plot_path,
             is_test=True,
+            extra_note="(SIMULATED ALERT)",
         )
         print(f"[{now_str()}] Test bucket email sent for {bucket.id}.")
 
@@ -138,83 +195,46 @@ class DipAlertRunner:
     def run_normal(self, show_plot: bool) -> None:
         """Perform a normal run: check current drawdown and alert if needed."""
         state = load_state(self.ix)
-        series = fetch_series(self.ix)
-        close, peak, dd, peak_date = compute_drawdown(series)
-        bucket = pick_bucket(dd, DEFAULT_BUCKETS)
+        ctx = self._build_context()
+        bucket = pick_bucket(ctx.dd, DEFAULT_BUCKETS)
 
         if not bucket:
             print(
-                f"[{now_str()}] No alert. [{self.ix.id}] DD {dd:.2f}% "
-                f"(close {close:.2f}, peak {peak:.2f})."
+                f"[{now_str()}] No alert. [{self.ix.id}] DD {ctx.dd:.2f}% "
+                f"(close {ctx.close:.2f}, peak {ctx.peak:.2f})."
             )
             return
 
-        peak_key = str(peak_date.date())
-        if bucket.id in state.get("fired_buckets", {}).get(peak_key, []):
+        peak_key = str(ctx.peak_date.date())
+        already = state.get("fired_buckets", {}).get(peak_key, [])
+        if bucket.id in already:
             print(
                 f"[{now_str()}] [{self.ix.id}] Bucket {bucket.id} "
                 f"already fired for this peak."
             )
             return
 
-        plot_path = (
-            make_alert_plot(
-                self.ix,
-                series,
-                title=f"{self.ix.name} — Close vs Recent High",
-            )
-            if SAVE_PLOTS
-            else None
-        )
-
-        if show_plot:
-            open_plot(plot_path)
-
-        # 🔹 dynamic subject & body
-        subject = make_email_subject(self.ix, bucket, dd)
-        body = make_email_body(
-            self.ix,
-            close,
-            peak,
-            dd,
-            peak_date,
-            bucket,
-        )
-        html_kwargs = dict(
-            ix=self.ix,
-            close=close,
-            peak=peak,
-            dd=dd,
-            peak_date=peak_date,
-            bucket=bucket,
+        plot_path = self._make_plot(
+            ctx,
+            title=f"{self.ix.name} — Close vs Recent High",
+            show_plot=show_plot,
         )
 
         try:
-            send_email(
-                subject,
-                body_text=body,
-                html_kwargs=html_kwargs,
-                attachments=[plot_path] if plot_path else None,
-                inline_path=plot_path,
+            self._send_and_log(
+                ctx=ctx,
+                bucket=bucket,
+                plot_path=plot_path,
+                is_test=False,
             )
-            print(f"[{now_str()}] [{self.ix.id}] Alert sent.")
-        except (smtplib.SMTPException, socket.timeout) as e:
-            print(f"[{now_str()}] [{self.ix.id}] ERROR sending email: {e}")
+        except Exception:
+            # Email failed; do not update state or log as fired.
             return
 
-        append_csv_log(
-            self.ix,
-            now_str(),
-            bucket,
-            dd,
-            close,
-            peak,
-            str(peak_date.date()),
-            plot_path,
-            self.ix.ticker,
-            is_test=False,
+        # Only mark bucket as fired if email was successfully sent
+        state.setdefault("fired_buckets", {}).setdefault(peak_key, []).append(
+            bucket.id
         )
-        state.setdefault("fired_buckets", {}).setdefault(peak_key, []).append(bucket.id)
         save_state(state, self.ix)
         print(f"[{now_str()}] [{self.ix.id}] Logged and state updated.")
 

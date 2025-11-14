@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import math
-import os
 import ssl
 from pathlib import Path
 from typing import List, Optional, Dict, Any
@@ -16,7 +15,7 @@ from email.utils import make_msgid
 
 import certifi
 
-from .config import DRY_RUN, INLINE_IMAGE, now_str, IndexConfig
+from .config import DRY_RUN, INLINE_IMAGE, now_str, IndexConfig, get_email_config
 from .buckets import Bucket
 
 
@@ -111,12 +110,11 @@ def send_email(
     inline_path: Optional[Path] = None,
 ) -> None:
     """Send an email using Gmail SMTP with an App Password."""
-    from_email = os.getenv("FROM_EMAIL")
-    to_email = os.getenv("TO_EMAIL")
-    app_pass = os.getenv("APP_PASSWORD")
-
-    if not (from_email and to_email and app_pass):
-        raise RuntimeError("Missing FROM_EMAIL / TO_EMAIL / APP_PASSWORD in environment")
+    # Centralized env handling
+    email_cfg = get_email_config()
+    from_email = email_cfg.from_email
+    to_email = email_cfg.to_email
+    app_pass = email_cfg.app_password
 
     ctx = ssl.create_default_context()
     ctx.load_verify_locations(cafile=certifi.where())
@@ -176,5 +174,5 @@ def send_email(
         s.ehlo()
         s.starttls(context=ctx)
         s.ehlo()
-        s.login(from_email, app_pass.replace(" ", ""))
+        s.login(from_email, app_pass)
         s.sendmail(from_email, [to_email], msg_root.as_string())
