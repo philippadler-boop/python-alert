@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import argparse
 
-from spx_alert.buckets import DEFAULT_BUCKETS
-from spx_alert.config import INDEXES, DEFAULT_INDEX_ID
-from spx_alert.runner import run_from_args
+from src.buckets import DEFAULT_BUCKETS
+from src.config import INDEXES, DEFAULT_INDEX_ID
+from src.runner import run_from_args
 
 
 def parse_args() -> argparse.Namespace:
