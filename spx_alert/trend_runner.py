@@ -11,8 +11,8 @@ from typing import Optional
 import pandas as pd
 
 from .alert_base import AlertBaseRunner
-from .config import SAVE_PLOTS, ATTACH_PLOT_ON_TEST, now_str
-from .data import compute_trend_entry
+from .config import SAVE_PLOTS, ATTACH_PLOT_ON_TEST, now_str, SRUUF_U3O8_LBS_PER_UNIT
+from .data import compute_trend_entry, compute_uranium_spot_from_sruuf
 from .email_utils import (
     send_email,
     make_trend_entry_subject,
@@ -85,7 +85,7 @@ class TrendEntryRunner(AlertBaseRunner):
             return
 
         profile = self.profile
-        assert profile is not None  # for type checkers
+        assert profile is not None
 
         if series is None:
             series = self.fetch_series()
@@ -109,16 +109,14 @@ class TrendEntryRunner(AlertBaseRunner):
             print(f"[{now_str()}] [{self.ix.id}] Trend entry not evaluated: {e}")
             return
 
-        # Build trend plot
+        # --- Plot building unchanged ---
         plot_path: Path | None = None
         hold_indices = None
         cross_idx = None
-
-        # Determine hold window indices (last N days used in compute_trend_entry)
         try:
             flags = is_above_flags
-            last_dates = flags.index[-(profile.hold_days + 1) :]
-            hold_indices = last_dates[-profile.hold_days :]
+            last_dates = flags.index[-(profile.hold_days + 1):]
+            hold_indices = last_dates[-profile.hold_days:]
             cross_idx = hold_indices[0]
         except Exception:
             hold_indices = None
@@ -137,25 +135,43 @@ class TrendEntryRunner(AlertBaseRunner):
         if show_plot:
             self.open_plot(plot_path)
 
-        # Load state
+        # --- Load state ---
         state = load_state(self.ix)
         trend_state = state.get("trend_entry", {})
-        last_alert_date = trend_state.get("last_alert_date")  # ISO string or None
+        last_alert_date = trend_state.get("last_alert_date")
 
-        # Track last status (above/below) for info
         is_above_today = pct_diff >= 0.0
         trend_state["last_status"] = "above" if is_above_today else "below"
 
         today_iso = str(today_idx.date())
 
-        # Build checklist from JSON
+        # --- Load fundamentals checklist from JSON ---
         checklists = load_trend_checklists()
         checklist = checklists.get(
             self.ix.id,
-            ["(No specific fundamentals checklist configured for this index.)"],
+            ["(No specific fundamentals checklist configured for this index.)"]
         )
 
-        # TEST MODE: always send an email with current metrics, no state change
+        # ============================================================
+        # 🔥 SRUUF-only: Prepend implied uranium spot to checklist
+        # ============================================================
+        if self.ix.id == "sruuf":
+            try:
+                spot = compute_uranium_spot_from_sruuf(
+                    nav_per_unit=close_today,
+                    u3o8_lbs_per_unit=SRUUF_U3O8_LBS_PER_UNIT,
+                )
+                spot_line = (
+                    f"Implied uranium spot (via SRUUF unit price): "
+                    f"{spot:.2f} USD/lb (approx.)."
+                )
+                checklist = [spot_line] + checklist
+            except Exception as e:
+                print(f"[{now_str()}] SRUUF spot computation failed (trend): {e}")
+
+        # ============================
+        # TEST MODE
+        # ============================
         if is_test:
             subject = make_trend_entry_subject(self.ix, is_test=True)
             body = make_trend_entry_body(
@@ -164,7 +180,7 @@ class TrendEntryRunner(AlertBaseRunner):
                 ma_today,
                 pct_diff,
                 profile.hold_days,
-                checklist,
+                checklist,        # <-- includes SRUUF spot if applicable
                 is_test=True,
             )
 
@@ -187,10 +203,12 @@ class TrendEntryRunner(AlertBaseRunner):
                 print(
                     f"[{now_str()}] [{self.ix.id}] ERROR sending trend test email: {e}"
                 )
-            # Do not touch state in test mode
             return
 
-        # LIVE MODE: only send when a new confirmed cross has occurred
+        # ============================
+        # LIVE MODE
+        # ============================
+
         if not (all_above and crossed_from_below):
             state["trend_entry"] = trend_state
             save_state(state, self.ix)
@@ -215,7 +233,7 @@ class TrendEntryRunner(AlertBaseRunner):
             ma_today,
             pct_diff,
             profile.hold_days,
-            checklist,
+            checklist,        # <-- includes SRUUF spot if applicable
             is_test=False,
         )
 
@@ -241,3 +259,4 @@ class TrendEntryRunner(AlertBaseRunner):
         trend_state["last_alert_date"] = today_iso
         state["trend_entry"] = trend_state
         save_state(state, self.ix)
+

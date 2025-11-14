@@ -126,3 +126,20 @@ def compute_trend_entry(close: pd.Series, ma_window=200, hold_days=5):
     c=float(close.loc[idx]); m=float(ma.loc[idx])
     pct=(c/m-1)*100
     return c,m,pct,all_above,crossed,idx,ma,is_above
+
+def compute_uranium_spot_from_sruuf(
+    nav_per_unit: float,
+    u3o8_lbs_per_unit: float,
+) -> float:
+    """
+    Compute an implied uranium spot price (USD/lb) from SRUUF.
+
+    We approximate:
+        spot ≈ NAV_per_unit / U3O8_lbs_per_unit
+
+    In practice, we use the SRUUF "close" price as a proxy for NAV.
+    """
+    if u3o8_lbs_per_unit <= 0:
+        raise ValueError("u3o8_lbs_per_unit must be positive")
+    return nav_per_unit / u3o8_lbs_per_unit
+

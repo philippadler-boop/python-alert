@@ -8,8 +8,8 @@ import pandas as pd
 
 from .alert_base import AlertBaseRunner
 from .buckets import Bucket, pick_bucket, get_buckets_for_index
-from .config import SAVE_PLOTS, ATTACH_PLOT_ON_TEST, now_str
-from .data import compute_drawdown, apply_peak_window
+from .config import SAVE_PLOTS, ATTACH_PLOT_ON_TEST, now_str, SRUUF_U3O8_LBS_PER_UNIT
+from .data import compute_drawdown, apply_peak_window, compute_uranium_spot_from_sruuf
 from .email_utils import send_email, make_email_subject, make_email_body
 from .logging_utils import append_csv_log
 from .plotting import make_alert_plot
@@ -48,17 +48,34 @@ class DipAlertRunner(AlertBaseRunner):
             print(f"[{now_str()}] Unknown bucket {bucket_id}")
             return
 
+        # --- SRUUF-only: compute implied uranium spot for test mail ---
+        note_parts: list[str] = ["(SIMULATED ALERT)"]
+        if self.ix.id == "sruuf":
+            try:
+                spot = compute_uranium_spot_from_sruuf(
+                    nav_per_unit=close,
+                    u3o8_lbs_per_unit=SRUUF_U3O8_LBS_PER_UNIT,
+                )
+                note_parts.append(
+                    f"Implied uranium spot (via SRUUF unit price): "
+                    f"{spot:.2f} USD/lb (approx.)."
+                )
+            except Exception as e:
+                print(f"[{now_str()}] SRUUF spot computation failed (test): {e}")
+        note = " ".join(note_parts)
+
         plot_path: Path | None = None
         if SAVE_PLOTS:
+            # Use the same windowed series that drove the dip logic
             plot_path = make_alert_plot(
                 self.ix,
-                series,
+                series_for_dd,
                 title=f"{self.ix.name} — Close vs Recent High (TEST)",
             )
         if show_plot:
             self.open_plot(plot_path)
 
-        subject = make_email_subject(self.ix, bucket, dd)
+        subject = f"TEST — {make_email_subject(self.ix, bucket, dd)}"
         body = make_email_body(
             self.ix,
             close,
@@ -66,7 +83,7 @@ class DipAlertRunner(AlertBaseRunner):
             dd,
             peak_date,
             bucket,
-            note="(SIMULATED ALERT)",
+            note=note,
         )
         html_kwargs = dict(
             ix=self.ix,
@@ -127,6 +144,21 @@ class DipAlertRunner(AlertBaseRunner):
             )
             return
 
+        # --- SRUUF-only: compute implied uranium spot for live mail ---
+        note = ""
+        if self.ix.id == "sruuf":
+            try:
+                spot = compute_uranium_spot_from_sruuf(
+                    nav_per_unit=close,
+                    u3o8_lbs_per_unit=SRUUF_U3O8_LBS_PER_UNIT,
+                )
+                note = (
+                    f"Implied uranium spot (via SRUUF unit price): "
+                    f"{spot:.2f} USD/lb (approx.)."
+                )
+            except Exception as e:
+                print(f"[{now_str()}] SRUUF spot computation failed (live): {e}")
+
         plot_path: Path | None = None
         if SAVE_PLOTS:
             plot_path = make_alert_plot(
@@ -145,6 +177,7 @@ class DipAlertRunner(AlertBaseRunner):
             dd,
             peak_date,
             bucket,
+            note=note,
         )
         html_kwargs = dict(
             ix=self.ix,

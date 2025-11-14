@@ -67,6 +67,10 @@ PLOTS_DIR.mkdir(parents=True, exist_ok=True)
 LOGS_DIR.mkdir(parents=True, exist_ok=True)
 STATE_DIR.mkdir(parents=True, exist_ok=True)
 
+# How much U3O8 (in pounds) each SRUUF unit represents.
+# Used to compute an implied uranium spot price from the SRUUF unit price.
+SRUUF_U3O8_LBS_PER_UNIT: float = 0.2404
+
 
 @dataclass(frozen=True)
 class IndexConfig:
