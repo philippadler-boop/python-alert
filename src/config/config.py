@@ -13,7 +13,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Root of the project (parent of this file's folder)
-ROOT_DIR: Path = Path(__file__).resolve().parent.parent
+ROOT_DIR: Path = Path(__file__).resolve().parent.parent.parent
 
 # ---------------------------------------------------------------------
 # Core settings (global knobs)
