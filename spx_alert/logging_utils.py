@@ -21,6 +21,13 @@ def append_csv_log(
     ticker: str,
     is_test: bool,
 ) -> None:
+    """Append a log row to the CSV log file.
+
+    The log is shared for all runs (test + real),
+    with an is_test flag distinguishing the two.
+    """
+    LOG_CSV.parent.mkdir(parents=True, exist_ok=True)
+
     if not LOG_CSV.exists():
         with LOG_CSV.open("w", newline="", encoding="utf-8") as f:
             csv.writer(f).writerow(
@@ -60,6 +67,7 @@ def _cutoff_dt() -> dt.datetime:
 
 
 def clean_old_plots(plots_dir: Path) -> int:
+    """Delete old PNG plots older than RETENTION_DAYS."""
     if not plots_dir.exists():
         return 0
     cutoff = _cutoff_dt()
@@ -70,7 +78,7 @@ def clean_old_plots(plots_dir: Path) -> int:
             if mtime < cutoff:
                 p.unlink(missing_ok=True)
                 deleted += 1
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             print(f"[{now_str()}] Plot cleanup skipped for {p.name}: {e}")
     if deleted:
         print(f"[{now_str()}] Plot cleanup: removed {deleted} old file(s).")
@@ -78,6 +86,7 @@ def clean_old_plots(plots_dir: Path) -> int:
 
 
 def clean_old_log_rows() -> int:
+    """Remove old rows from the CSV log file (older than RETENTION_DAYS)."""
     if not LOG_CSV.exists():
         return 0
 
@@ -115,6 +124,6 @@ def clean_old_log_rows() -> int:
             print(f"[{now_str()}] Log cleanup: removed {removed} old row(s).")
 
         return removed
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         print(f"[{now_str()}] Log cleanup error: {e}")
         return 0

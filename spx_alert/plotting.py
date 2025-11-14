@@ -9,12 +9,20 @@ import pandas as pd
 from .config import PLOTS_DIR, PLOT_LOOKBACK_DAYS, INDEX_TICKER, now_str
 
 
-def make_alert_plot(series: pd.Series, title: str = "SPX vs Recent High") -> Optional[Path]:
-    """Save plot PNG of price + rolling high, return path (or None on failure)."""
+def make_alert_plot(
+    series: pd.Series,
+    title: str = "SPX vs Recent High",
+) -> Optional[Path]:
+    """Save a PNG plot of price + rolling high and return the path.
+
+    The plot is limited to the last PLOT_LOOKBACK_DAYS for readability.
+    If plotting fails or data is empty, returns None.
+    """
     try:
         import matplotlib
+
         matplotlib.use("Agg")
-        from matplotlib import pyplot as plt
+        from matplotlib import pyplot as plt  # type: ignore
 
         s = series.dropna()
         if s.empty:
@@ -25,7 +33,7 @@ def make_alert_plot(series: pd.Series, title: str = "SPX vs Recent High") -> Opt
         roll = s.cummax()
 
         ts = now_str().replace(":", "-")
-        fname = f"{INDEX_TICKER.replace('^','')}_{ts}.png"
+        fname = f"{INDEX_TICKER.replace('^', '')}_{ts}.png"
         out_path = (PLOTS_DIR / fname).resolve()
 
         fig, ax = plt.subplots(figsize=(10, 5), dpi=120)
@@ -43,6 +51,6 @@ def make_alert_plot(series: pd.Series, title: str = "SPX vs Recent High") -> Opt
 
         print(f"[{now_str()}] Plot saved → {out_path}")
         return out_path
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         print(f"[{now_str()}] Plot error: {e}")
         return None

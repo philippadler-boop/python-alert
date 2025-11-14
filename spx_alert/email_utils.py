@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import math
 import os
-import socket
 import ssl
 from pathlib import Path
 from typing import List, Optional, Dict, Any
@@ -30,6 +29,7 @@ def build_html_email(
     bucket: Bucket,
     cid: Optional[str],
 ) -> str:
+    """Return a simple HTML version of the alert email."""
     lo, hi, note = bucket.lo, bucket.hi, bucket.note
     lo_s = f"{lo:.0f}%" if math.isfinite(lo) else "-∞"
     hi_s = f"{hi:.0f}%"
@@ -37,9 +37,10 @@ def build_html_email(
     img_html = ""
     if cid:
         img_html = (
-            f"<div style='margin-top:14px;'>"
-            f"<img src='cid:{cid}' style='max-width:100%;height:auto;border:1px solid #ddd'/>"
-            f"</div>"
+            "<div style='margin-top:14px;'>"
+            f"<img src='cid:{cid}' "
+            "style='max-width:100%;height:auto;border:1px solid #ddd'/>"
+            "</div>"
         )
 
     return f"""
@@ -64,6 +65,7 @@ def build_html_email(
 
 
 def make_email_subject(bucket: Bucket, dd: float) -> str:
+    """Build a subject line including the bucket range and drawdown."""
     lo, hi = bucket.lo, bucket.hi
     if math.isfinite(lo):
         rng = f"{int(hi)}% to {int(lo)}%"
@@ -81,6 +83,7 @@ def make_email_body(
     bucket: Bucket,
     note: str = "",
 ) -> str:
+    """Plain-text body for the alert."""
     lo, hi = bucket.lo, bucket.hi
     lines = [
         "[SPX Dip Alert]",
@@ -105,11 +108,12 @@ def send_email(
     attachments: Optional[List[Path]] = None,
     inline_path: Optional[Path] = None,
 ) -> None:
-    FROM_EMAIL = os.getenv("FROM_EMAIL")
-    TO_EMAIL = os.getenv("TO_EMAIL")
-    APP_PASS = os.getenv("APP_PASSWORD")
+    """Send an email using Gmail SMTP with an App Password."""
+    from_email = os.getenv("FROM_EMAIL")
+    to_email = os.getenv("TO_EMAIL")
+    app_pass = os.getenv("APP_PASSWORD")
 
-    if not (FROM_EMAIL and TO_EMAIL and APP_PASS):
+    if not (from_email and to_email and app_pass):
         raise RuntimeError("Missing FROM_EMAIL / TO_EMAIL / APP_PASSWORD in environment")
 
     ctx = ssl.create_default_context()
@@ -117,8 +121,8 @@ def send_email(
 
     msg_root = MIMEMultipart("mixed")
     msg_root["Subject"] = subject
-    msg_root["From"] = FROM_EMAIL
-    msg_root["To"] = TO_EMAIL
+    msg_root["From"] = from_email
+    msg_root["To"] = to_email
 
     alt = MIMEMultipart("alternative")
     alt.attach(MIMEText(body_text, _subtype="plain", _charset="utf-8"))
@@ -159,12 +163,15 @@ def send_email(
         msg_root.attach(part)
 
     if DRY_RUN:
-        print(f"[DRY_RUN] Would send '{subject}' (attachments={[p.name for p in (attachments or [])]})")
+        print(
+            f"[DRY_RUN] Would send '{subject}' "
+            f"(attachments={[p.name for p in (attachments or []) if p]})"
+        )
         return
 
     with smtplib.SMTP("smtp.gmail.com", 587, timeout=20) as s:
         s.ehlo()
         s.starttls(context=ctx)
         s.ehlo()
-        s.login(FROM_EMAIL, APP_PASS.replace(" ", ""))
-        s.sendmail(FROM_EMAIL, [TO_EMAIL], msg_root.as_string())
+        s.login(from_email, app_pass.replace(" ", ""))
+        s.sendmail(from_email, [to_email], msg_root.as_string())
