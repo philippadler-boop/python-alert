@@ -8,13 +8,7 @@ import sys
 import smtplib
 import socket
 
-from .config import (
-    INDEX_TICKER,
-    LOOKBACK_DAYS,
-    SAVE_PLOTS,
-    PLOTS_DIR,
-    now_str,
-)
+from .config import SPX_INDEX, IndexConfig, SAVE_PLOTS, now_str
 from .buckets import DEFAULT_BUCKETS, pick_bucket
 from .data import fetch_series, compute_drawdown
 from .state import load_state, save_state
@@ -47,18 +41,18 @@ def open_plot(plot_path) -> None:
 
 
 class DipAlertRunner:
-    """Encapsulates the main SPX dip-alert logic."""
+    """Encapsulates the main dip-alert logic for a given index."""
 
-    def __init__(self) -> None:
-        self.ticker = INDEX_TICKER
+    def __init__(self, ix: IndexConfig = SPX_INDEX) -> None:
+        self.ix = ix
 
     # ----------------- Test email -----------------
 
     def run_test_email(self) -> None:
         """Send a simple SMTP wiring test email."""
-        subject = "TEST — SPX Dip Alert wiring OK"
+        subject = f"TEST — {self.ix.name} Dip Alert wiring OK"
         body = (
-            "[SPX Dip Alert — TEST]\n"
+            f"[{self.ix.name} Dip Alert — TEST]\n"
             f"Host: {platform.node()}\n"
             f"Time: {now_str()}\n"
             "✓ SMTP connection successful."
@@ -70,7 +64,7 @@ class DipAlertRunner:
 
     def run_test_bucket(self, bucket_id: str, show_plot: bool) -> None:
         """Simulate a bucket being triggered without altering state."""
-        series = fetch_series(self.ticker, LOOKBACK_DAYS)
+        series = fetch_series(self.ix)
         close, peak, dd, peak_date = compute_drawdown(series)
 
         bucket = next((b for b in DEFAULT_BUCKETS if b.id == bucket_id), None)
@@ -80,8 +74,9 @@ class DipAlertRunner:
 
         plot_path = (
             make_alert_plot(
+                self.ix,
                 series,
-                title=f"{self.ticker} — Close vs Recent High (TEST)",
+                title=f"{self.ix.name} — Close vs Recent High (TEST)",
             )
             if SAVE_PLOTS
             else None
@@ -92,7 +87,7 @@ class DipAlertRunner:
 
         subject = make_email_subject(bucket, dd)
         body = make_email_body(
-            self.ticker,
+            self.ix.ticker,
             close,
             peak,
             dd,
@@ -101,7 +96,7 @@ class DipAlertRunner:
             "(SIMULATED ALERT)",
         )
         html_kwargs = dict(
-            ticker=self.ticker,
+            ticker=self.ix.ticker,
             close=close,
             peak=peak,
             dd=dd,
@@ -118,6 +113,7 @@ class DipAlertRunner:
         )
 
         append_csv_log(
+            self.ix,
             now_str(),
             bucket,
             dd,
@@ -125,7 +121,7 @@ class DipAlertRunner:
             peak,
             str(peak_date.date()),
             plot_path,
-            self.ticker,
+            self.ix.ticker,
             is_test=True,
         )
         print(f"[{now_str()}] Test bucket email sent for {bucket.id}.")
@@ -134,8 +130,8 @@ class DipAlertRunner:
 
     def run_normal(self, show_plot: bool) -> None:
         """Perform a normal run: check current drawdown and alert if needed."""
-        state = load_state()
-        series = fetch_series(self.ticker, LOOKBACK_DAYS)
+        state = load_state(self.ix)
+        series = fetch_series(self.ix)
         close, peak, dd, peak_date = compute_drawdown(series)
         bucket = pick_bucket(dd, DEFAULT_BUCKETS)
 
@@ -153,8 +149,9 @@ class DipAlertRunner:
 
         plot_path = (
             make_alert_plot(
+                self.ix,
                 series,
-                title=f"{self.ticker} — Close vs Recent High",
+                title=f"{self.ix.name} — Close vs Recent High",
             )
             if SAVE_PLOTS
             else None
@@ -165,7 +162,7 @@ class DipAlertRunner:
 
         subject = make_email_subject(bucket, dd)
         body = make_email_body(
-            self.ticker,
+            self.ix.ticker,
             close,
             peak,
             dd,
@@ -173,7 +170,7 @@ class DipAlertRunner:
             bucket,
         )
         html_kwargs = dict(
-            ticker=self.ticker,
+            ticker=self.ix.ticker,
             close=close,
             peak=peak,
             dd=dd,
@@ -195,6 +192,7 @@ class DipAlertRunner:
             return
 
         append_csv_log(
+            self.ix,
             now_str(),
             bucket,
             dd,
@@ -202,21 +200,23 @@ class DipAlertRunner:
             peak,
             str(peak_date.date()),
             plot_path,
-            self.ticker,
+            self.ix.ticker,
             is_test=False,
         )
         state.setdefault("fired_buckets", {}).setdefault(peak_key, []).append(bucket.id)
-        save_state(state)
+        save_state(state, self.ix)
         print(f"[{now_str()}] Logged and state updated.")
 
 
 def run_from_args(args) -> None:
     """Entry point used by main.py to dispatch based on CLI args."""
-    # housekeeping (per run)
-    clean_old_plots(PLOTS_DIR)
-    clean_old_log_rows()
+    ix = SPX_INDEX  # single index for now, but ready to extend
 
-    runner = DipAlertRunner()
+    # housekeeping (per run, per index)
+    clean_old_plots(ix.plots_dir)
+    clean_old_log_rows(ix)
+
+    runner = DipAlertRunner(ix)
 
     if args.test:
         runner.run_test_email()

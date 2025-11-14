@@ -6,16 +6,17 @@ from typing import Optional
 
 import pandas as pd
 
-from .config import PLOTS_DIR, PLOT_LOOKBACK_DAYS, INDEX_TICKER, now_str
+from .config import SPX_INDEX, IndexConfig, now_str
 
 
 def make_alert_plot(
+    ix: IndexConfig,
     series: pd.Series,
-    title: str = "SPX vs Recent High",
+    title: str | None = None,
 ) -> Optional[Path]:
     """Save a PNG plot of price + rolling high and return the path.
 
-    The plot is limited to the last PLOT_LOOKBACK_DAYS for readability.
+    The plot is limited to the last ix.plot_lookback_days for readability.
     If plotting fails or data is empty, returns None.
     """
     try:
@@ -29,18 +30,19 @@ def make_alert_plot(
             print(f"[{now_str()}] Plot skipped: empty data.")
             return None
 
-        s = s.iloc[-PLOT_LOOKBACK_DAYS:]
+        s = s.iloc[-ix.plot_lookback_days:]
         roll = s.cummax()
 
         ts = now_str().replace(":", "-")
-        fname = f"{INDEX_TICKER.replace('^', '')}_{ts}.png"
-        out_path = (PLOTS_DIR / fname).resolve()
+        ticker_clean = ix.ticker.replace("^", "")
+        fname = f"{ticker_clean}_{ts}.png"
+        out_path = (ix.plots_dir / fname).resolve()
 
         fig, ax = plt.subplots(figsize=(10, 5), dpi=120)
         ax.plot(s.index, s.values, label="Close", lw=1.5)
         ax.plot(roll.index, roll.values, label="Recent High", lw=1.2, ls="--")
         ax.scatter(s.index[-1], s.iloc[-1], s=40, zorder=5)
-        ax.set_title(title)
+        ax.set_title(title or f"{ix.name} — Close vs Recent High")
         ax.set_xlabel("Date")
         ax.set_ylabel("Price")
         ax.legend(loc="best")

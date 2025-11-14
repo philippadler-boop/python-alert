@@ -8,21 +8,14 @@ from typing import Tuple, Optional
 import pandas as pd
 import yfinance as yf
 
-from .config import INDEX_TICKER, LOOKBACK_DAYS, now_str
+from .config import SPX_INDEX, IndexConfig, now_str
 
 
-def fetch_series(
-    ticker: str = INDEX_TICKER,
-    days: int = LOOKBACK_DAYS,
-) -> pd.Series:
-    """Fetch daily adjusted close series for the given ticker.
-
-    Uses yfinance to download daily data, with a bit of overshoot on start.
-    Retries up to 3 times if there are transient errors.
+def fetch_series(ix: IndexConfig = SPX_INDEX) -> pd.Series:
+    """Fetch daily adjusted close series for the given index config.
 
     Args:
-        ticker: Symbol to download (default is INDEX_TICKER).
-        days: Number of calendar days to look back.
+        ix: IndexConfig describing ticker and lookback horizon.
 
     Returns:
         A pandas Series of closing prices indexed by date.
@@ -31,13 +24,13 @@ def fetch_series(
         RuntimeError: If data cannot be fetched after retries.
     """
     end = dt.date.today()
-    start = end - dt.timedelta(days=days + 10)
+    start = end - dt.timedelta(days=ix.lookback_days + 10)
     last_err: Optional[Exception] = None
 
     for attempt in range(1, 4):
         try:
             df = yf.download(
-                ticker,
+                ix.ticker,
                 start=start,
                 end=end,
                 interval="1d",
@@ -62,7 +55,7 @@ def fetch_series(
             print(f"[{now_str()}] Fetch attempt {attempt} failed: {last_err}; retrying...")
             time.sleep(attempt * 2)
 
-    raise RuntimeError(f"Data fetch failed: {last_err}")
+    raise RuntimeError(f"Data fetch failed for {ix.ticker}: {last_err}")
 
 
 def compute_drawdown(close: pd.Series) -> Tuple[float, float, float, pd.Timestamp]:

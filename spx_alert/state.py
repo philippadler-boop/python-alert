@@ -4,34 +4,35 @@ from __future__ import annotations
 import json
 from typing import Dict, Any
 
-from .config import STATE_FILE
+from .config import SPX_INDEX, IndexConfig
 
 
-def load_state() -> Dict[str, Any]:
-    """Load JSON state from disk.
+def load_state(ix: IndexConfig = SPX_INDEX) -> Dict[str, Any]:
+    """Load JSON state from disk for a given index.
 
-    Structure is:
+    Structure:
         {
             "fired_buckets": {
                 "<peak_key>": ["B10", "B20"]
             }
         }
 
-    The state is only written when a real bucket alert fires,
-    so the file may not exist until the first alert.
+    For now we only use SPX, but this is ready for more indices.
     """
-    STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
+    path = ix.state_file
+    path.parent.mkdir(parents=True, exist_ok=True)
 
-    if STATE_FILE.exists():
+    if path.exists():
         try:
-            return json.loads(STATE_FILE.read_text())
+            return json.loads(path.read_text())
         except Exception:  # noqa: BLE001
-            # If file is corrupted, start fresh
+            # if file is corrupted, start fresh
             pass
     return {"fired_buckets": {}}
 
 
-def save_state(state: Dict[str, Any]) -> None:
-    """Persist JSON state to disk."""
-    STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
-    STATE_FILE.write_text(json.dumps(state, indent=2))
+def save_state(state: Dict[str, Any], ix: IndexConfig = SPX_INDEX) -> None:
+    """Persist JSON state for a given index to disk."""
+    path = ix.state_file
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(state, indent=2))

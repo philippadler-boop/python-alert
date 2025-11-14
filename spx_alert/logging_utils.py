@@ -6,11 +6,12 @@ import datetime as dt
 from pathlib import Path
 from typing import Optional
 
-from .config import LOG_CSV, LOCAL_TZ, RETENTION_DAYS, now_str
+from .config import LOCAL_TZ, RETENTION_DAYS, now_str, SPX_INDEX, IndexConfig
 from .buckets import Bucket
 
 
 def append_csv_log(
+    ix: IndexConfig,
     ts: str,
     bucket: Bucket,
     dd: float,
@@ -21,15 +22,12 @@ def append_csv_log(
     ticker: str,
     is_test: bool,
 ) -> None:
-    """Append a log row to the CSV log file.
+    """Append a log row to the CSV log file for the given index."""
+    csv_path = ix.log_csv
+    csv_path.parent.mkdir(parents=True, exist_ok=True)
 
-    The log is shared for all runs (test + real),
-    with an is_test flag distinguishing the two.
-    """
-    LOG_CSV.parent.mkdir(parents=True, exist_ok=True)
-
-    if not LOG_CSV.exists():
-        with LOG_CSV.open("w", newline="", encoding="utf-8") as f:
+    if not csv_path.exists():
+        with csv_path.open("w", newline="", encoding="utf-8") as f:
             csv.writer(f).writerow(
                 [
                     "ts_iso",
@@ -45,7 +43,7 @@ def append_csv_log(
                 ]
             )
 
-    with LOG_CSV.open("a", newline="", encoding="utf-8") as f:
+    with csv_path.open("a", newline="", encoding="utf-8") as f:
         csv.writer(f).writerow(
             [
                 ts,
@@ -67,7 +65,7 @@ def _cutoff_dt() -> dt.datetime:
 
 
 def clean_old_plots(plots_dir: Path) -> int:
-    """Delete old PNG plots older than RETENTION_DAYS."""
+    """Delete old PNG plots under a given directory."""
     if not plots_dir.exists():
         return 0
     cutoff = _cutoff_dt()
@@ -85,16 +83,17 @@ def clean_old_plots(plots_dir: Path) -> int:
     return deleted
 
 
-def clean_old_log_rows() -> int:
-    """Remove old rows from the CSV log file (older than RETENTION_DAYS)."""
-    if not LOG_CSV.exists():
+def clean_old_log_rows(ix: IndexConfig = SPX_INDEX) -> int:
+    """Remove old rows from the CSV log file for the given index."""
+    csv_path = ix.log_csv
+    if not csv_path.exists():
         return 0
 
     cutoff = _cutoff_dt()
     kept, removed = [], 0
 
     try:
-        with LOG_CSV.open("r", newline="", encoding="utf-8") as f:
+        with csv_path.open("r", newline="", encoding="utf-8") as f:
             rows = list(csv.reader(f))
         if not rows:
             return 0
@@ -115,12 +114,12 @@ def clean_old_log_rows() -> int:
                 kept.append(r)
 
         if removed:
-            tmp = LOG_CSV.with_suffix(".tmp.csv")
+            tmp = csv_path.with_suffix(".tmp.csv")
             with tmp.open("w", newline="", encoding="utf-8") as f:
                 w = csv.writer(f)
                 w.writerow(header)
                 w.writerows(kept)
-            tmp.replace(LOG_CSV)
+            tmp.replace(csv_path)
             print(f"[{now_str()}] Log cleanup: removed {removed} old row(s).")
 
         return removed
