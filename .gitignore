@@ -9,7 +9,7 @@ venv/
 
 # Artifacts
 plots/
-spx_dip_alert_log.csv
+*_log.csv
 *.png
 
 # VS Code
