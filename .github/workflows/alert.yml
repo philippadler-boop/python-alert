@@ -11,6 +11,8 @@ jobs:
       FROM_EMAIL: ${{ secrets.FROM_EMAIL }}
       TO_EMAIL: ${{ secrets.TO_EMAIL }}
       APP_PASSWORD: ${{ secrets.APP_PASSWORD }}
+
+      # Core behavior
       LOCAL_TZ: Europe/Berlin
       LOOKBACK_DAYS: "1095"
       DRY_RUN: "0"
@@ -18,8 +20,11 @@ jobs:
       INLINE_IMAGE: "0"
       PLOT_LOOKBACK_DAYS: "180"
       RETENTION_DAYS: "30"
+
+      # Directories (match config.py expectations)
       PLOTS_DIR: plots
-      LOG_CSV: spx_dip_alert_log.csv
+      LOGS_DIR: logs
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -45,5 +50,5 @@ jobs:
           name: spx-alert-artifacts
           path: |
             plots/**
-            spx_dip_alert_log.csv
+            logs/**
           if-no-files-found: ignore
