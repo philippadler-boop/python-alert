@@ -15,6 +15,7 @@ from .config import (
     DEFAULT_INDEX_ID,
     IndexConfig,
     SAVE_PLOTS,
+    ATTACH_PLOT_ON_TEST,
     now_str,
 )
 from .buckets import DEFAULT_BUCKETS, pick_bucket, Bucket
@@ -119,12 +120,19 @@ class DipAlertRunner:
             bucket=bucket,
         )
 
+        # Attach plot only if:
+        # - we have a plot, AND
+        # - it's a live alert, OR test alerts are configured to attach
+        attachments = None
+        if plot_path and (not is_test or ATTACH_PLOT_ON_TEST):
+            attachments = [plot_path]
+
         try:
             send_email(
                 subject,
                 body_text=body,
                 html_kwargs=html_kwargs,
-                attachments=[plot_path] if plot_path else None,
+                attachments=attachments,
                 inline_path=plot_path,
             )
             tag = "TEST" if is_test else "LIVE"

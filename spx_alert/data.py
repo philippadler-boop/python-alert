@@ -9,10 +9,7 @@ import pandas as pd
 import yfinance as yf
 
 from .config import SPX_INDEX, IndexConfig, now_str
-
-
-class DataFetchError(RuntimeError):
-    """Raised when price data cannot be fetched or is unusable."""
+from .exceptions import DataFetchError
 
 
 def _normalize_close_series(df: pd.DataFrame) -> pd.Series:
