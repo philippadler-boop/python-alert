@@ -67,6 +67,7 @@ class DipAlertRunner:
     def __init__(self, ix: IndexConfig, peak_window: str) -> None:
         self.ix = ix
         self.peak_window = peak_window
+        # use index-specific bucket set (spx, ndx, sox, srvr, ura, remx, ...)
         self.buckets = get_buckets_for_index(ix.id)
 
     # ----------------- internal helpers -----------------
@@ -250,23 +251,11 @@ class DipAlertRunner:
         print(f"[{now_str()}] [{self.ix.id}] Logged and state updated.")
 
 
-def run_from_args(args) -> None:
-    """Entry point used by main.py to dispatch based on CLI args."""
-    ix_id = getattr(args, "index", None) or DEFAULT_INDEX_ID
-
-    from .config import INDEXES  # avoid circular imports at module load
-    ix = INDEXES.get(ix_id)
-    if not ix:
-        available = ", ".join(INDEXES.keys())
-        print(f"[{now_str()}] Unknown index '{ix_id}'. Available: {available}")
-        return
-
+def _run_single_index(ix: IndexConfig, args, peak_window: str) -> None:
+    """Run the alert logic for a single index (including housekeeping)."""
     # housekeeping (per run, per index)
     clean_old_plots(ix.plots_dir)
     clean_old_log_rows(ix)
-
-    # Determine peak window: CLI overrides env/DEFAULT
-    peak_window = getattr(args, "peak_window", None) or PEAK_WINDOW_DEFAULT
 
     runner = DipAlertRunner(ix, peak_window=peak_window)
 
@@ -276,3 +265,38 @@ def run_from_args(args) -> None:
         runner.run_test_bucket(args.test_bucket, args.show_plot)
     else:
         runner.run_normal(args.show_plot)
+
+
+def run_from_args(args) -> None:
+    """Entry point used by main.py to dispatch based on CLI args."""
+    ix_id = getattr(args, "index", None) or DEFAULT_INDEX_ID
+
+    from .config import INDEXES  # avoid circular imports at module load
+
+    # Determine peak window: CLI overrides env/DEFAULT
+    peak_window = getattr(args, "peak_window", None) or PEAK_WINDOW_DEFAULT
+
+    if ix_id == "all":
+        # For safety, we do not support --test / --test-bucket with 'all'
+        if args.test or args.test_bucket:
+            print(
+                f"[{now_str()}] '--index all' cannot be combined with "
+                "--test or --test-bucket. Please choose a specific index."
+            )
+            return
+
+        # Run normal mode for all configured indices
+        for ix_key, ix in INDEXES.items():
+            print(f"[{now_str()}] Running alert for index '{ix_key}'...")
+            _run_single_index(ix, args, peak_window=peak_window)
+
+        return
+
+    # Single-index mode (existing behavior)
+    ix = INDEXES.get(ix_id)
+    if not ix:
+        available = ", ".join(INDEXES.keys())
+        print(f"[{now_str()}] Unknown index '{ix_id}'. Available: {available}")
+        return
+
+    _run_single_index(ix, args, peak_window=peak_window)

@@ -15,9 +15,12 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--index",
-        choices=list(INDEXES.keys()),
+        choices=list(INDEXES.keys()) + ["all"],
         default=DEFAULT_INDEX_ID,
-        help=f"Which index configuration to use (default: {DEFAULT_INDEX_ID}).",
+        help=(
+            "Which index configuration to use "
+            f"(default: {DEFAULT_INDEX_ID}). Use 'all' to run for all indices."
+        )
     )
     parser.add_argument(
         "--test",
