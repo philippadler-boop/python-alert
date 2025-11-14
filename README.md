@@ -87,6 +87,7 @@ PLOT_LOOKBACK_DAYS=180           # shorter window for plots
 # PLOTS_DIR=plots
 # STATE_DIR=state
 # LOGS_DIR=logs
+```env
 .env is not committed (ignored by .gitignore) so secrets stay local.
 
 🖥️ Running Locally
