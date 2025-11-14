@@ -1,11 +1,11 @@
 # spx_alert/runner.py
 from __future__ import annotations
 
-from .config.config import INDEXES, DEFAULT_INDEX_ID, now_str
-from .alerts.dip_runner import DipAlertRunner
-from .alerts.trend_runner import TrendEntryRunner
-from .alerts.combined_runner import CombinedRunner
-from .logging.logging_utils import clean_old_plots, clean_old_log_rows
+from .config import INDEXES, DEFAULT_INDEX_ID, now_str
+from .alerts import DipAlertRunner
+from .alerts import TrendEntryRunner
+from .alerts import CombinedRunner
+from .logging import clean_old_plots, clean_old_log_rows
 
 
 def _run_single_index(ix, args, peak_window: str, *, mode: str) -> None:

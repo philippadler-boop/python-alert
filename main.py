@@ -2,9 +2,7 @@ from __future__ import annotations
 
 import argparse
 
-from src.alerts.buckets import DEFAULT_BUCKETS
-from src.config.config import INDEXES, DEFAULT_INDEX_ID
-from src.runner import run_from_args
+from src import DEFAULT_BUCKETS, INDEXES, DEFAULT_INDEX_ID, run_from_args
 
 
 def parse_args() -> argparse.Namespace:
