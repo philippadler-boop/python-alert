@@ -1,65 +1,44 @@
-name: SPX Dip Alert (Daily)
+name: SPX Alerts — Daily (Dip + Trend)
 
 on:
   schedule:
-    - cron: "30 15 * * 1-5"  # Runs daily at 16:30 Europe/Berlin (15:30 UTC)
+    - cron: "30 15 * * 1-5"
 
 jobs:
   run-alert:
     runs-on: ubuntu-latest
     env:
-      # Email / SMTP from GitHub Secrets
       FROM_EMAIL: ${{ secrets.FROM_EMAIL }}
       TO_EMAIL: ${{ secrets.TO_EMAIL }}
       APP_PASSWORD: ${{ secrets.APP_PASSWORD }}
-
-      # Behavior toggles
+      LOCAL_TZ: Europe/Berlin
+      LOOKBACK_DAYS: "1095"
       DRY_RUN: "0"
       SAVE_PLOTS: "1"
       INLINE_IMAGE: "0"
-      ATTACH_PLOT_ON_TEST: "0"         # usually 0 in daily prod runs
-
-      # Timezone & retention
-      LOCAL_TZ: Europe/Berlin
-      RETENTION_DAYS: "30"
-
-      # Index settings (optional overrides)
-      INDEX_TICKER: "^GSPC"
-      NDX_TICKER: "^NDX"
-      LOOKBACK_DAYS: "1095"
-      PLOT_LOOKBACK_DAYS: "180"
-
-      # Recent-high window for drawdown
+      RETENTION_DAYS: "365"
+      ATTACH_PLOT_ON_TEST: "1"
+      DIP_PLOT_LOOKBACK_DAYS: "180"
+      TREND_PLOT_LOOKBACK_DAYS: "30"
       PEAK_WINDOW: "1y"
-
-      # Directories
       PLOTS_DIR: plots
       LOGS_DIR: logs
       STATE_DIR: state
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-
-      - name: Install dependencies
-        run: |
+      - run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-
-      - name: Run alerts for all indices
-        run: |
-          python main.py --index all --both-modes         
-
-      - name: Upload logs and plots
-        uses: actions/upload-artifact@v4
+      - run: |
+          python main.py --index all --both-modes
+      - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: spx-alert-artifacts
+          name: daily-alert-artifacts
           path: |
             plots/**
             logs/**
