@@ -26,43 +26,67 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+
     env:
+      # Email credentials
       FROM_EMAIL: ${{ secrets.FROM_EMAIL }}
       TO_EMAIL: ${{ secrets.TO_EMAIL }}
       APP_PASSWORD: ${{ secrets.APP_PASSWORD }}
+
+      # Core behavior
       LOCAL_TZ: Europe/Berlin
       LOOKBACK_DAYS: "1095"
-      DRY_RUN: "0"
+      DRY_RUN: "0"               # still sends emails in test mode
       SAVE_PLOTS: "1"
       INLINE_IMAGE: "0"
       RETENTION_DAYS: "30"
       ATTACH_PLOT_ON_TEST: "1"
+
+      # Dip / trend plot windows
       DIP_PLOT_LOOKBACK_DAYS: "180"
       TREND_PLOT_LOOKBACK_DAYS: "30"
+
+      # Peak window logic for dip alerts
+      # CLI > env > default = 1y
       PEAK_WINDOW: "1y"
+
+      # Directories (must match config.py)
       PLOTS_DIR: plots
       LOGS_DIR: logs
       STATE_DIR: state
 
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - run: |
+
+      - name: Install dependencies
+        run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-      - name: Run BOTH dip and trend tests
+
+      - name: Prepare directories
+        run: |
+          mkdir -p plots
+          mkdir -p logs
+          mkdir -p state
+
+      - name: Run both Dip + Trend tests (shared fetch)
         run: |
           python main.py \
             --index "${{ github.event.inputs.index }}" \
             --test-bucket "${{ github.event.inputs.bucket }}" \
             --both-modes
 
-      - uses: actions/upload-artifact@v4
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
         with:
           name: test-alert-${{ github.event.inputs.index }}-${{ github.event.inputs.bucket }}
           path: |
-            plots/**
-            logs/**
+            plots
+            logs
           if-no-files-found: warn
