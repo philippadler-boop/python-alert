@@ -11,15 +11,15 @@ from typing import Optional
 import pandas as pd
 
 from .alert_base import AlertBaseRunner
-from .config import SAVE_PLOTS, ATTACH_PLOT_ON_TEST, now_str, SRUUF_U3O8_LBS_PER_UNIT
-from .data import compute_trend_entry, compute_uranium_spot_from_sruuf
-from .email_utils import (
+from ..config.config import SAVE_PLOTS, ATTACH_PLOT_ON_TEST, now_str, SRUUF_U3O8_LBS_PER_UNIT
+from ..data import compute_trend_entry, compute_uranium_spot_from_sruuf, load_state, save_state
+
+from ..email.email_utils import (
     send_email,
     make_trend_entry_subject,
     make_trend_entry_body,
 )
-from .plotting import make_trend_plot
-from .state import load_state, save_state
+from ..plotting.plotting import make_trend_plot
 
 
 @dataclass(frozen=True)

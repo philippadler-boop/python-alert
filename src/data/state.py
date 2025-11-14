@@ -4,7 +4,7 @@ from __future__ import annotations
 import json
 from typing import Dict, Any
 
-from .config import SPX_INDEX, IndexConfig
+from ..config.config import SPX_INDEX, IndexConfig
 
 
 def load_state(ix: IndexConfig = SPX_INDEX) -> Dict[str, Any]:

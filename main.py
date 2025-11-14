@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import argparse
 
-from src.buckets import DEFAULT_BUCKETS
-from src.config import INDEXES, DEFAULT_INDEX_ID
+from src.alerts.buckets import DEFAULT_BUCKETS
+from src.config.config import INDEXES, DEFAULT_INDEX_ID
 from src.runner import run_from_args
 
 

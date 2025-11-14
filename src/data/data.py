@@ -3,7 +3,7 @@ from __future__ import annotations
 import datetime as dt, time
 from typing import Tuple
 import pandas as pd, yfinance as yf
-from .config import SPX_INDEX, IndexConfig, now_str
+from ..config.config import SPX_INDEX, IndexConfig, now_str
 
 def fetch_series(ix: IndexConfig = SPX_INDEX) -> pd.Series:
     lookback_days = getattr(ix, "lookback_days", 1095)

@@ -6,8 +6,8 @@ import datetime as dt
 from pathlib import Path
 from typing import Optional
 
-from .config import LOCAL_TZ, RETENTION_DAYS, now_str, SPX_INDEX, IndexConfig
-from .buckets import Bucket
+from ..config.config import LOCAL_TZ, RETENTION_DAYS, now_str, SPX_INDEX, IndexConfig
+from ..alerts.buckets import Bucket
 
 
 def append_csv_log(

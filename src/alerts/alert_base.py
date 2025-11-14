@@ -4,8 +4,8 @@ import os, subprocess, sys
 from abc import ABC
 from pathlib import Path
 import pandas as pd
-from .config import IndexConfig
-from .data import fetch_series
+from ..config.config import IndexConfig
+from ..data import fetch_series
 
 class AlertBaseRunner(ABC):
     def __init__(self, ix: IndexConfig, peak_window=None):
@@ -27,5 +27,5 @@ class AlertBaseRunner(ABC):
             else:
                 subprocess.run(['xdg-open', str(path)], check=False)
         except Exception as e:
-            from .config import now_str
+            from ..config.config import now_str
             print(f'[{now_str()}] Could not open plot: {e}')

@@ -13,8 +13,8 @@ from email.mime.image import MIMEImage
 from email.mime.application import MIMEApplication
 from email.utils import make_msgid
 
-from .config import DRY_RUN, INLINE_IMAGE, now_str, IndexConfig
-from .buckets import Bucket
+from ..config.config import DRY_RUN, INLINE_IMAGE, now_str, IndexConfig
+from ..alerts.buckets import Bucket
 
 
 def build_html_email(
