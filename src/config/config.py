@@ -54,7 +54,7 @@ ATTACH_PLOT_ON_TEST: bool = os.getenv("ATTACH_PLOT_ON_TEST", "1") == "1"
 RETENTION_DAYS: int = int(os.getenv("RETENTION_DAYS", "30"))
 
 # Base directories
-PLOTS_DIR: Path = Path(os.getenv("PLOTS_DIR", ROOT_DIR / "plots")).resolve()
+PLOTS_DIR: Path = (ROOT_DIR / "plots").resolve()
 LOGS_DIR: Path = (ROOT_DIR / "logs").resolve()
 STATE_DIR: Path = (ROOT_DIR / "state").resolve()
 
