@@ -106,12 +106,16 @@ def fetch_series(ix: IndexConfig = SPX_INDEX) -> pd.Series:
     raise DataFetchError(f"Data fetch failed for {ix.ticker}: {last_err}")
 
 
-def compute_drawdown(close: pd.Series) -> Tuple[float, float, float, pd.Timestamp]:
-    """Compute the current drawdown relative to the rolling max.
+def compute_drawdown(close: pd.Series, peak_window: str) -> Tuple[float, float, float, pd.Timestamp]:
+    """Compute the current drawdown relative to a configurable recent high.
 
-    Returns:
-        current_close, peak_value, drawdown_pct, peak_date
+    peak_window options:
+        "1y"              → last 365 days
+        "ytd"             → since January 1 of the current year
+        "date:YYYY-MM-DD" → explicit anchor date (e.g. investment date)
+        anything else     → use full available history
     """
+
     if isinstance(close, pd.DataFrame):
         close = close.iloc[:, -1]
 
@@ -121,15 +125,55 @@ def compute_drawdown(close: pd.Series) -> Tuple[float, float, float, pd.Timestam
     # Ensure series is sorted by date
     close = close.sort_index()
 
-    rolling_max = close.cummax()
-    dd_pct = (close / rolling_max - 1.0) * 100.0
+    # Ensure we have a DatetimeIndex
+    if not isinstance(close.index, pd.DatetimeIndex):
+        try:
+            close.index = pd.to_datetime(close.index)
+        except Exception as e:  # noqa: BLE001
+            raise ValueError(f"Unable to convert index to DatetimeIndex: {e}")
 
-    current = float(close.iat[-1])
-    peak_value = float(rolling_max.iat[-1])
-    dd = float(dd_pct.iat[-1])
+    idx = close.index
+    peak_window = (peak_window or "").lower()
 
-    # Last occurrence of the rolling max
-    eq = (close.round(6) == rolling_max.round(6))
-    peak_idx = eq[eq].index[-1]
+    # ----------------- determine cutoff -----------------
+    cutoff: pd.Timestamp
+
+    if peak_window == "1y":
+        cutoff = idx[-1] - dt.timedelta(days=365)
+
+    elif peak_window == "ytd":
+        year = idx[-1].year
+        # preserve timezone if present
+        if idx.tz is not None:
+            cutoff = pd.Timestamp(year=year, month=1, day=1, tz=idx.tz)
+        else:
+            cutoff = pd.Timestamp(year=year, month=1, day=1)
+
+    elif peak_window.startswith("date:"):
+        _, date_str = peak_window.split(":", 1)
+        try:
+            cutoff = pd.Timestamp(date_str.strip())
+            if cutoff.tzinfo is None and idx.tz is not None:
+                cutoff = cutoff.tz_localize(idx.tz)
+        except Exception as e:  # noqa: BLE001
+            raise ValueError(f"Invalid PEAK_WINDOW value '{peak_window}': {e}")
+    else:
+        # Fallback: use full history
+        cutoff = idx[0]
+
+    # ----------------- restrict to window -----------------
+    window = close[close.index >= cutoff]
+
+    # If the window is empty (e.g. cutoff after last data), fall back to full series
+    if window.empty:
+        window = close
+
+    # Peak within the window
+    peak_value = float(window.max())
+    peak_idx = window.idxmax()
+
+    current = float(window.iloc[-1])
+    dd = (current / peak_value - 1.0) * 100.0
 
     return current, peak_value, dd, pd.Timestamp(peak_idx)
+

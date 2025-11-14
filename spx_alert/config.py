@@ -19,6 +19,13 @@ ROOT_DIR: Path = Path(__file__).resolve().parent.parent
 # Core settings (global knobs)
 # ---------------------------------------------------------------------
 
+# How to define the "recent high" window for drawdown:
+#  - "1y"            → last 365 days
+#  - "ytd"           → since Jan 1 of current year
+#  - "date:YYYY-MM-DD" → custom anchor date (e.g. investment start)
+#  - anything else   → use full available history
+PEAK_WINDOW_DEFAULT: str = os.getenv("PEAK_WINDOW", "1y").lower()
+
 # Default SPX ticker (can be overridden via .env)
 INDEX_TICKER: str = os.getenv("INDEX_TICKER", "^GSPC")
 

@@ -17,6 +17,7 @@ from .config import (
     SAVE_PLOTS,
     ATTACH_PLOT_ON_TEST,
     now_str,
+    PEAK_WINDOW_DEFAULT,
 )
 from .buckets import DEFAULT_BUCKETS, pick_bucket, Bucket, get_buckets_for_index
 from .data import fetch_series, compute_drawdown
@@ -63,9 +64,9 @@ class AlertContext:
 class DipAlertRunner:
     """Encapsulates the main dip-alert logic for a given index."""
 
-    def __init__(self, ix: IndexConfig) -> None:
+    def __init__(self, ix: IndexConfig, peak_window: str) -> None:
         self.ix = ix
-        # pick bucket set based on index id (spx, sox, srvr, ura, remx, ...)
+        self.peak_window = peak_window
         self.buckets = get_buckets_for_index(ix.id)
 
     # ----------------- internal helpers -----------------
@@ -73,7 +74,7 @@ class DipAlertRunner:
     def _build_context(self) -> AlertContext:
         """Fetch latest series and compute drawdown context."""
         series = fetch_series(self.ix)
-        close, peak, dd, peak_date = compute_drawdown(series)
+        close, peak, dd, peak_date = compute_drawdown(series, self.peak_window)
         return AlertContext(
             series=series,
             close=close,
@@ -264,7 +265,10 @@ def run_from_args(args) -> None:
     clean_old_plots(ix.plots_dir)
     clean_old_log_rows(ix)
 
-    runner = DipAlertRunner(ix)
+    # Determine peak window: CLI overrides env/DEFAULT
+    peak_window = getattr(args, "peak_window", None) or PEAK_WINDOW_DEFAULT
+
+    runner = DipAlertRunner(ix, peak_window=peak_window)
 
     if args.test:
         runner.run_test_email()

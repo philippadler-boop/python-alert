@@ -81,6 +81,12 @@ NDX_TICKER=^NDX                  # default NDX ticker
 LOOKBACK_DAYS=1095               # data lookback (days)
 PLOT_LOOKBACK_DAYS=180           # shorter window for plots
 
+# How to determine the "recent high" for drawdown
+# 1y  = last 365 days
+# ytd = since Jan 1 of current year
+# date:YYYY-MM-DD = custom anchor date (e.g. when you started investing)
+PEAK_WINDOW=1y
+
 # Optional custom dirs (defaults shown in config.py)
 # PLOTS_DIR=plots
 # STATE_DIR=state
@@ -125,6 +131,19 @@ python main.py --index ndx
 python main.py --test
 python main.py --index spx --test-bucket B10
 python main.py --show-plot
+
+# Use default window from PEAK_WINDOW (e.g. 1y)
+python main.py --index remx
+
+# Explicit 1-year peak window
+python main.py --index remx --peak-window 1y
+
+# Year-to-date peak
+python main.py --index remx --peak-window ytd
+
+# From a specific investment date
+python main.py --index remx --peak-window date:2023-04-01
+
 ```
 
 ---
