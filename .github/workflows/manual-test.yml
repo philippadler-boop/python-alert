@@ -28,29 +28,23 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      # Email credentials
       FROM_EMAIL: ${{ secrets.FROM_EMAIL }}
       TO_EMAIL: ${{ secrets.TO_EMAIL }}
       APP_PASSWORD: ${{ secrets.APP_PASSWORD }}
 
-      # Core behavior
       LOCAL_TZ: Europe/Berlin
       LOOKBACK_DAYS: "1095"
-      DRY_RUN: "0"               # still sends emails in test mode
+      DRY_RUN: "0"
       SAVE_PLOTS: "1"
       INLINE_IMAGE: "0"
       RETENTION_DAYS: "30"
       ATTACH_PLOT_ON_TEST: "1"
 
-      # Dip / trend plot windows
       DIP_PLOT_LOOKBACK_DAYS: "180"
       TREND_PLOT_LOOKBACK_DAYS: "30"
 
-      # Peak window logic for dip alerts
-      # CLI > env > default = 1y
       PEAK_WINDOW: "1y"
 
-      # Directories (must match config.py)
       PLOTS_DIR: plots
       LOGS_DIR: logs
       STATE_DIR: state
@@ -75,12 +69,17 @@ jobs:
           mkdir -p logs
           mkdir -p state
 
-      - name: Run both Dip + Trend tests (shared fetch)
+      - name: Run DIP test (simulated bucket)
         run: |
           python main.py \
             --index "${{ github.event.inputs.index }}" \
-            --test-bucket "${{ github.event.inputs.bucket }}" \
-            --both-modes
+            --test-bucket "${{ github.event.inputs.bucket }}"
+
+      - name: Run TREND test (forced)
+        run: |
+          python main.py \
+            --index "${{ github.event.inputs.index }}" \
+            --trend-entry --test
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
