@@ -131,11 +131,59 @@ NDX_INDEX: IndexConfig = IndexConfig(
     log_csv=LOGS_DIR / "ndx_dip_alert_log.csv",
     plots_dir=PLOTS_DIR / "ndx",
 )
+SOX_INDEX: IndexConfig = IndexConfig(
+    id="sox",
+    name="PHLX Semiconductor",
+    ticker="^SOX",
+    lookback_days=LOOKBACK_DAYS,
+    plot_lookback_days=PLOT_LOOKBACK_DAYS,
+    state_file=STATE_DIR / "sox_alert_state.json",
+    log_csv=LOGS_DIR / "sox_dip_alert_log.csv",
+    plots_dir=PLOTS_DIR / "sox",
+)
+
+SRVR_INDEX: IndexConfig = IndexConfig(
+    id="srvr",
+    name="Pacer Benchmark Data & Infrastructure Real Estate",
+    ticker="SRVR",
+    lookback_days=LOOKBACK_DAYS,
+    plot_lookback_days=PLOT_LOOKBACK_DAYS,
+    state_file=STATE_DIR / "srvr_alert_state.json",
+    log_csv=LOGS_DIR / "srvr_dip_alert_log.csv",
+    plots_dir=PLOTS_DIR / "srvr",
+)
+
+URA_INDEX: IndexConfig = IndexConfig(
+    id="ura",
+    name="Global X Uranium",
+    ticker="URA",
+    lookback_days=LOOKBACK_DAYS,
+    plot_lookback_days=PLOT_LOOKBACK_DAYS,
+    state_file=STATE_DIR / "ura_alert_state.json",
+    log_csv=LOGS_DIR / "ura_dip_alert_log.csv",
+    plots_dir=PLOTS_DIR / "ura",
+)
+
+REMX_INDEX: IndexConfig = IndexConfig(
+    id="remx",
+    name="Rare Earth and Strategic Metals",
+    ticker="REMX",
+    lookback_days=LOOKBACK_DAYS,
+    plot_lookback_days=PLOT_LOOKBACK_DAYS,
+    state_file=STATE_DIR / "remx_alert_state.json",
+    log_csv=LOGS_DIR / "remx_dip_alert_log.csv",
+    plots_dir=PLOTS_DIR / "remx",
+)
+
 
 # Registry of available indices
 INDEXES: Dict[str, IndexConfig] = {
     "spx": SPX_INDEX,
     "ndx": NDX_INDEX,
+    "sox": SOX_INDEX,
+    "srvr": SRVR_INDEX,
+    "ura": URA_INDEX,
+    "remx": REMX_INDEX,
 }
 
 # Default index id

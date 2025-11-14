@@ -11,6 +11,7 @@ venv/
 plots/
 *_log.csv
 *.png
+*state.json
 
 # VS Code
 .vscode/
