@@ -41,6 +41,67 @@ def fetch_series(ix: IndexConfig = SPX_INDEX) -> pd.Series:
 
     raise RuntimeError(f"Failed to fetch data for {ix.ticker}") from last_exc
 
+def apply_peak_window(
+    close: pd.Series,
+    peak_window: str | None,
+) -> pd.Series:
+    """
+    Restrict the series used for the peak calculation based on a window spec.
+
+    Expected peak_window values (after runner precedence resolution):
+      - None or ""        → use default window ("1y")
+      - "all"             → no restriction (full series)
+      - "1y"              → last 365 days
+      - "ytd"             → from Jan 1 of the current year
+      - "date:YYYY-MM-DD" → from that date onward
+
+    Note:
+      The runner ensures that None/"" are replaced by "1y" *before* calling this.
+      This function implements the actual windowing logic.
+    """
+
+    # Ensure correct type/shape
+    if isinstance(close, pd.DataFrame):
+        close = close.iloc[:, -1]
+
+    close = close.dropna().sort_index()
+    if close.empty:
+        return close
+
+    # If peak_window is None or "", treat it as "1y"
+    if not peak_window:
+        peak_window = "1y"
+
+    # CASE 1 — no restriction
+    if peak_window == "all":
+        return close
+
+    last_date = close.index.max().normalize()
+
+    # CASE 2 — 1-year window
+    if peak_window == "1y":
+        cutoff = last_date - pd.DateOffset(years=1)
+        return close.loc[close.index >= cutoff]
+
+    # CASE 3 — year-to-date
+    if peak_window == "ytd":
+        year_start = last_date.replace(month=1, day=1)
+        return close.loc[close.index >= year_start]
+
+    # CASE 4 — custom start date
+    if peak_window.startswith("date:"):
+        try:
+            date_str = peak_window.split(":", 1)[1]
+            cutoff = pd.to_datetime(date_str)
+            return close.loc[close.index >= cutoff]
+        except Exception:
+            # Bad format → fall back to 1-year window
+            cutoff = last_date - pd.DateOffset(years=1)
+            return close.loc[close.index >= cutoff]
+
+    # CASE 5 — unknown spec → fall back to 1-year window
+    cutoff = last_date - pd.DateOffset(years=1)
+    return close.loc[close.index >= cutoff]
 
 def compute_drawdown(close: pd.Series):
     if isinstance(close,pd.DataFrame): close=close.iloc[:,-1]

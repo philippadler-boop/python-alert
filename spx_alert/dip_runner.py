@@ -9,7 +9,7 @@ import pandas as pd
 from .alert_base import AlertBaseRunner
 from .buckets import Bucket, pick_bucket, get_buckets_for_index
 from .config import SAVE_PLOTS, ATTACH_PLOT_ON_TEST, now_str
-from .data import compute_drawdown
+from .data import compute_drawdown, apply_peak_window
 from .email_utils import send_email, make_email_subject, make_email_body
 from .logging_utils import append_csv_log
 from .plotting import make_alert_plot
@@ -40,7 +40,8 @@ class DipAlertRunner(AlertBaseRunner):
     def run_test_bucket(self, bucket_id: str, show_plot: bool) -> None:
         """Simulate a bucket alert without touching state."""
         series = self.fetch_series()
-        close, peak, dd, peak_date = compute_drawdown(series)
+        series_for_dd = apply_peak_window(series, self.peak_window)
+        close, peak, dd, peak_date = compute_drawdown(series_for_dd)
 
         bucket = next((b for b in self.buckets if b.id == bucket_id), None)
         if bucket is None:
@@ -106,7 +107,8 @@ class DipAlertRunner(AlertBaseRunner):
     def run_with_series(self, series: pd.Series, show_plot: bool) -> None:
         """Perform a dip alert run using a pre-fetched series."""
         state = load_state(self.ix)
-        close, peak, dd, peak_date = compute_drawdown(series)
+        series_for_dd = apply_peak_window(series, self.peak_window)
+        close, peak, dd, peak_date = compute_drawdown(series_for_dd)
         bucket = pick_bucket(dd, self.buckets)
 
         if not bucket:
@@ -129,7 +131,7 @@ class DipAlertRunner(AlertBaseRunner):
         if SAVE_PLOTS:
             plot_path = make_alert_plot(
                 self.ix,
-                series,
+                series_for_dd,
                 title=f"{self.ix.name} — Close vs Recent High",
             )
         if show_plot:
