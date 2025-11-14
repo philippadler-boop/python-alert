@@ -57,9 +57,8 @@ jobs:
           python main.py \
             --index "${{ github.event.inputs.index }}" \
             --test-bucket "${{ github.event.inputs.bucket }}" \
-            --trend-entry \
-            --test \
             --both-modes
+
       - uses: actions/upload-artifact@v4
         with:
           name: test-alert-${{ github.event.inputs.index }}-${{ github.event.inputs.bucket }}
