@@ -3,3 +3,6 @@ pandas
 python-dotenv
 matplotlib
 certifi
+pytest
+pytest-cov
+pytest-xdist
