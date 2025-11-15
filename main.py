@@ -8,10 +8,20 @@ from src import DEFAULT_BUCKETS, INDEXES, DEFAULT_INDEX_ID, run_from_args
 def parse_args() -> argparse.Namespace:
     """Parse command line arguments for the alert tool."""
     parser = argparse.ArgumentParser(
+        prog="Alert Tool",
         description=(
             "Dip Alert / Trend Entry — drawdown-based dip alerts and "
-            "MA200-based trend-entry alerts."
-        )
+            "MA200-based trend-entry alerts with email notifications and plot generation."
+        ),
+        epilog=(
+            "Examples:\n"
+            "  python main.py --index all --both-modes          # Run both dip + trend in combined mode\n"
+            "  python main.py --index sox --dip-entry           # Dip alerts only\n"
+            "  python main.py --index srvr --trend-entry --test # Test trend email\n"
+            "  python main.py --index spx --test-bucket B20     # Simulate dip bucket\n"
+            "  python main.py --help                            # Show this help"
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
 
     parser.add_argument(
@@ -53,11 +63,9 @@ def parse_args() -> argparse.Namespace:
         "--peak-window",
         metavar="WINDOW",
         help=(
-            "Recent-high window for drawdown in dip mode: "
-            "'1y' (last 365 days), 'ytd' (year-to-date), "
-            "or 'date:YYYY-MM-DD' for a custom anchor date. "
-            "If omitted, the runner applies precedence: "
-            "CLI > PEAK_WINDOW env > default '1y'."
+            "Peak window for dip mode drawdown calculation: "
+            "'1y' (365 days), 'ytd' (year-to-date), 'all', or 'date:YYYY-MM-DD'. "
+            "Precedence: CLI > env PEAK_WINDOW > default '1y'"
         ),
     )
 
@@ -88,11 +96,9 @@ def parse_args() -> argparse.Namespace:
         "--both-modes",
         action="store_true",
         help=(
-            "Explicitly run both dip alerts and trend-entry checks in a single pass, "
-            "reusing the same fetched price series per index. "
-            "If no mode is specified, the runner will treat this combined mode "
-            "as the default. Not compatible with --test-bucket, and --test is "
-            "interpreted in the selected mode rather than combined."
+            "Run both dip + trend checks in one pass (default if no mode specified). "
+            "Optimized: fetches price data once, computes MA200 once (with caching). "
+            "Not compatible with --test-bucket"
         ),
     )
 
