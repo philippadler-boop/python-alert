@@ -1,10 +1,9 @@
-# spx_alert/runner.py
 from __future__ import annotations
 
-from .config import INDEXES, DEFAULT_INDEX_ID, now_str
-from .alerts import DipAlertRunner
-from .alerts import TrendEntryRunner
-from .alerts import CombinedRunner
+from .config import INDEXES, DEFAULT_INDEX_ID, PEAK_WINDOW_DEFAULT, now_str
+from .alerts.dip_runner import DipAlertRunner
+from .alerts.trend_runner import TrendEntryRunner
+from .alerts.combined_runner import CombinedRunner
 from .logging import clean_old_plots, clean_old_log_rows
 
 
@@ -17,6 +16,7 @@ def _run_single_index(ix, args, peak_window: str, *, mode: str) -> None:
     if mode == "dip":
         runner = DipAlertRunner(ix, peak_window=peak_window)
         if getattr(args, "test", False):
+            # Simple SMTP / dip wiring test
             runner.run_test_email()
         elif getattr(args, "test_bucket", None):
             runner.run_test_bucket(args.test_bucket, args.show_plot)
@@ -43,47 +43,63 @@ def run_from_args(args) -> None:
     """Entry point used by main.py to dispatch based on CLI args."""
     ix_id = getattr(args, "index", None) or DEFAULT_INDEX_ID
 
-    peak_window = getattr(args, "peak_window", None) or ""
+    # ----------------- Peak window precedence -----------------
+    # CLI --peak-window  >  PEAK_WINDOW_DEFAULT  >  "1y"
+    cli_peak = getattr(args, "peak_window", None)
+    if cli_peak:
+        peak_window = cli_peak
+    elif PEAK_WINDOW_DEFAULT:
+        peak_window = PEAK_WINDOW_DEFAULT
+    else:
+        peak_window = "1y"
+
+    # ----------------- Mode resolution -----------------
+    dip_flag = getattr(args, "dip_entry", False)
     trend_flag = getattr(args, "trend_entry", False)
     both_flag = getattr(args, "both_modes", False)
 
-    if both_flag and trend_flag:
-        print(
-            f"[{now_str()}] Cannot use --trend-entry and --both-modes together. "
-            "Choose one mode."
-        )
-        return
-
-    if both_flag:
-        mode = "both"
+    # Default is combined mode ("both") if user doesn't choose explicitly
+    if dip_flag:
+        mode = "dip"
     elif trend_flag:
         mode = "trend"
+    elif both_flag:
+        mode = "both"
     else:
-        mode = "dip"
+        mode = "both"
 
-    # Validate incompatible combinations
-    if mode in ("trend", "both") and getattr(args, "test_bucket", None):
+    test_bucket = getattr(args, "test_bucket", None)
+    is_test = getattr(args, "test", False)
+
+    # ----------------- Validate incompatible combinations -----------------
+
+    # test-bucket only makes sense in dip mode; forbid for trend / both
+    if test_bucket is not None and mode in ("trend", "both"):
         print(
             f"[{now_str()}] --test-bucket is only valid in dip mode "
             "(no --trend-entry / --both-modes)."
         )
         return
 
-    if mode == "both" and getattr(args, "test", False):
+    # Combined mode + --test is ambiguous by design, keep semantics strict
+    if mode == "both" and is_test:
         print(
             f"[{now_str()}] --test is not supported in combined mode (--both-modes). "
             "Use dip-only or trend-only for testing."
         )
         return
 
-    if ix_id == "all":
-        if getattr(args, "test", False) or getattr(args, "test_bucket", None):
-            print(
-                f"[{now_str()}] '--index all' cannot be combined with --test or "
-                "--test-bucket. Choose a specific index."
-            )
-            return
+    # For safety, don't allow '--index all' with test/test-bucket
+    if ix_id == "all" and (is_test or test_bucket is not None):
+        print(
+            f"[{now_str()}] '--index all' cannot be combined with --test or "
+            "--test-bucket. Choose a specific index."
+        )
+        return
 
+    # ----------------- Dispatch -----------------
+
+    if ix_id == "all":
         for ix_key, ix in INDEXES.items():
             print(f"[{now_str()}] Running {mode} mode for index '{ix_key}'...")
             _run_single_index(ix, args, peak_window=peak_window, mode=mode)
