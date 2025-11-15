@@ -1,17 +1,51 @@
-# Python
-__pycache__/
-*.pyc
+# Virtual environments
+.venv/
 venv/
+env/
+ENV/
 
-# Secrets / env
+# Python cache and bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Pytest / test caches
+.pytest_cache/
+
+# Mypy
+.mypy_cache/
+
+# Distribution / build
+build/
+dist/
+*.egg-info/
+
+# Secrets / environment files
 .env
-*.env
+.env.*
+secrets.env
 
-# Artifacts
-plots/
-*_log.csv
-*.png
-*state.json
-
-# VS Code
+# IDEs
 .vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Project artifacts (do not commit large generated files)
+01_state/
+02_logs/
+03_plots/
+*_log.csv
+*_dip_alert_log.csv
+*_alert_log.csv
+*state.json
+*.log
+
+# Images / plots
+*.png
+*.jpg
+*.jpeg
+*.svg

@@ -12,6 +12,26 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+
+def _env_int(name: str, default: int) -> int:
+    """Read an integer environment variable, ignoring trailing comments.
+
+    Allows values like "1095  # data lookback (days)" by stripping anything
+    after a '#' and whitespace before converting to int. Falls back to the
+    provided default on parse errors or empty values.
+    """
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    # strip inline comments and whitespace
+    cleaned = raw.split("#", 1)[0].strip()
+    if cleaned == "":
+        return default
+    try:
+        return int(cleaned)
+    except (ValueError, TypeError):
+        return default
+
 # Root of the project (parent of this file's folder)
 ROOT_DIR: Path = Path(__file__).resolve().parent.parent.parent
 
@@ -47,7 +67,7 @@ INDEX_TICKER: str = os.getenv("INDEX_TICKER", "^GSPC")
 NDX_TICKER: str = os.getenv("NDX_TICKER", "^NDX")
 
 # How many calendar days of history to fetch
-LOOKBACK_DAYS: int = int(os.getenv("LOOKBACK_DAYS", str(LOOKBACK_DAYS_DEFAULT)))
+LOOKBACK_DAYS: int = _env_int("LOOKBACK_DAYS", LOOKBACK_DAYS_DEFAULT)
 
 # Local timezone for timestamps
 LOCAL_TZ: ZoneInfo = ZoneInfo(os.getenv("LOCAL_TZ", "Europe/Berlin"))
@@ -65,7 +85,7 @@ INLINE_IMAGE: bool = os.getenv("INLINE_IMAGE", "0") == "1"
 ATTACH_PLOT_ON_TEST: bool = os.getenv("ATTACH_PLOT_ON_TEST", "1") == "1"
 
 # How long to keep logs and plots
-RETENTION_DAYS: int = int(os.getenv("RETENTION_DAYS", str(RETENTION_DAYS_DEFAULT)))
+RETENTION_DAYS: int = _env_int("RETENTION_DAYS", RETENTION_DAYS_DEFAULT)
 
 # Base directories
 STATE_DIR: Path = (ROOT_DIR / "01_state").resolve()
@@ -73,8 +93,8 @@ LOGS_DIR: Path = (ROOT_DIR / "02_logs").resolve()
 PLOTS_DIR: Path = (ROOT_DIR / "03_plots").resolve()
 
 # Plot lookback window (shorter window than fetch horizon)
-DIP_PLOT_LOOKBACK_DAYS = int(os.getenv("DIP_PLOT_LOOKBACK_DAYS", str(DIP_PLOT_LOOKBACK_DAYS_DEFAULT)))
-TREND_PLOT_LOOKBACK_DAYS = int(os.getenv("TREND_PLOT_LOOKBACK_DAYS", str(TREND_PLOT_LOOKBACK_DAYS_DEFAULT)))
+DIP_PLOT_LOOKBACK_DAYS = _env_int("DIP_PLOT_LOOKBACK_DAYS", DIP_PLOT_LOOKBACK_DAYS_DEFAULT)
+TREND_PLOT_LOOKBACK_DAYS = _env_int("TREND_PLOT_LOOKBACK_DAYS", TREND_PLOT_LOOKBACK_DAYS_DEFAULT)
 
 # Ensure base directories exist
 PLOTS_DIR.mkdir(parents=True, exist_ok=True)
