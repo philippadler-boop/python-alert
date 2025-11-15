@@ -1,4 +1,4 @@
-# 📉📈 SPX Alert — Dip Alerts + Trend Entry Alerts
+# 📉📈 Inndex Alert — Dip Alerts + Trend Entry Alerts
 
 A fully automated alerting tool for:
 
