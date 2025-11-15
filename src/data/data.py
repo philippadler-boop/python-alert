@@ -15,7 +15,7 @@ def fetch_series(ix: IndexConfig = SPX_INDEX) -> pd.Series:
     for attempt in range(1, 4):
         try:
             print(f"[{now_str()}] Fetching {ix.ticker} (attempt {attempt}) from {start} to {end}...")
-            data = yf.download(ix.ticker, start=start, end=end, progress=False, auto_adjust=False)
+            data = yf.download(ix.ticker, start=start, end=end, progress=False, auto_adjust=False, timeout=30)
 
             if data is None or data.empty:
                 raise RuntimeError("Empty result")
