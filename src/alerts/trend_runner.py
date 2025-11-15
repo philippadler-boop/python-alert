@@ -109,52 +109,37 @@ class TrendEntryRunner(AlertBaseRunner):
             print(f"[{now_str()}] [{self.ix.id}] Trend entry not evaluated: {e}")
             return
 
-        # --- Plot building unchanged ---
-        plot_path: Path | None = None
+        # Determine hold window indices (last N days used in compute_trend_entry)
         hold_indices = None
         cross_idx = None
         try:
             flags = is_above_flags
-            last_dates = flags.index[-(profile.hold_days + 1):]
-            hold_indices = last_dates[-profile.hold_days:]
+            last_dates = flags.index[-(profile.hold_days + 1) :]
+            hold_indices = last_dates[-profile.hold_days :]
             cross_idx = hold_indices[0]
         except Exception:
             hold_indices = None
             cross_idx = None
 
-        if SAVE_PLOTS:
-            plot_title = f"{self.ix.name} — Close vs MA{profile.ma_window}"
-            plot_path = make_trend_plot(
-                self.ix,
-                series,
-                ma_series,
-                hold_indices=hold_indices,
-                cross_idx=cross_idx,
-                title=plot_title,
-            )
-        if show_plot:
-            self.open_plot(plot_path)
-
-        # --- Load state ---
+        # Load state
         state = load_state(self.ix)
         trend_state = state.get("trend_entry", {})
-        last_alert_date = trend_state.get("last_alert_date")
+        last_alert_date = trend_state.get("last_alert_date")  # ISO string or None
 
+        # Track last status (above/below) for info
         is_above_today = pct_diff >= 0.0
         trend_state["last_status"] = "above" if is_above_today else "below"
 
         today_iso = str(today_idx.date())
 
-        # --- Load fundamentals checklist from JSON ---
+        # Build checklist from JSON
         checklists = load_trend_checklists()
         checklist = checklists.get(
             self.ix.id,
-            ["(No specific fundamentals checklist configured for this index.)"]
+            ["(No specific fundamentals checklist configured for this index.)"],
         )
 
-        # ============================================================
-        # 🔥 SRUUF-only: Prepend implied uranium spot to checklist
-        # ============================================================
+        # SRUUF-only: prepend implied uranium spot to checklist
         if self.ix.id == "sruuf":
             try:
                 spot = compute_uranium_spot_from_sruuf(
@@ -169,10 +154,24 @@ class TrendEntryRunner(AlertBaseRunner):
             except Exception as e:
                 print(f"[{now_str()}] SRUUF spot computation failed (trend): {e}")
 
-        # ============================
-        # TEST MODE
-        # ============================
+        # -------------- TEST MODE: always send email, optional plot --------------
+        plot_path: Path | None = None
+
         if is_test:
+            # In test mode we almost always want a plot (for inspection and attachments)
+            if SAVE_PLOTS or show_plot or ATTACH_PLOT_ON_TEST:
+                plot_title = f"{self.ix.name} — Close vs MA{profile.ma_window}"
+                plot_path = make_trend_plot(
+                    self.ix,
+                    series,
+                    ma_series,
+                    hold_indices=hold_indices,
+                    cross_idx=cross_idx,
+                    title=plot_title,
+                )
+                if show_plot:
+                    self.open_plot(plot_path)
+
             subject = make_trend_entry_subject(self.ix, is_test=True)
             body = make_trend_entry_body(
                 self.ix,
@@ -180,7 +179,7 @@ class TrendEntryRunner(AlertBaseRunner):
                 ma_today,
                 pct_diff,
                 profile.hold_days,
-                checklist,        # <-- includes SRUUF spot if applicable
+                checklist,
                 is_test=True,
             )
 
@@ -203,13 +202,27 @@ class TrendEntryRunner(AlertBaseRunner):
                 print(
                     f"[{now_str()}] [{self.ix.id}] ERROR sending trend test email: {e}"
                 )
+            # Do not touch state in test mode
             return
 
-        # ============================
-        # LIVE MODE
-        # ============================
+        # -------------- LIVE MODE: only create plot when useful --------------
 
-        if not (all_above and crossed_from_below):
+        cond_met = all_above and crossed_from_below
+
+        if not cond_met:
+            # No alert; only create a plot if user explicitly asked to see it
+            if SAVE_PLOTS and show_plot:
+                plot_title = f"{self.ix.name} — Close vs MA{profile.ma_window}"
+                plot_path = make_trend_plot(
+                    self.ix,
+                    series,
+                    ma_series,
+                    hold_indices=hold_indices,
+                    cross_idx=cross_idx,
+                    title=plot_title,
+                )
+                self.open_plot(plot_path)
+
             state["trend_entry"] = trend_state
             save_state(state, self.ix)
             print(
@@ -219,12 +232,39 @@ class TrendEntryRunner(AlertBaseRunner):
             return
 
         if last_alert_date == today_iso:
+            # Already alerted today; again, only build a plot if show_plot is requested
+            if SAVE_PLOTS and show_plot:
+                plot_title = f"{self.ix.name} — Close vs MA{profile.ma_window}"
+                plot_path = make_trend_plot(
+                    self.ix,
+                    series,
+                    ma_series,
+                    hold_indices=hold_indices,
+                    cross_idx=cross_idx,
+                    title=plot_title,
+                )
+                self.open_plot(plot_path)
+
             state["trend_entry"] = trend_state
             save_state(state, self.ix)
             print(
                 f"[{now_str()}] Trend entry for '{self.ix.id}' already alerted today."
             )
             return
+
+        # Condition met and not yet alerted today → build plot (if enabled) and send
+        if SAVE_PLOTS or show_plot:
+            plot_title = f"{self.ix.name} — Close vs MA{profile.ma_window}"
+            plot_path = make_trend_plot(
+                self.ix,
+                series,
+                ma_series,
+                hold_indices=hold_indices,
+                cross_idx=cross_idx,
+                title=plot_title,
+            )
+            if show_plot:
+                self.open_plot(plot_path)
 
         subject = make_trend_entry_subject(self.ix, is_test=False)
         body = make_trend_entry_body(
@@ -233,7 +273,7 @@ class TrendEntryRunner(AlertBaseRunner):
             ma_today,
             pct_diff,
             profile.hold_days,
-            checklist,        # <-- includes SRUUF spot if applicable
+            checklist,
             is_test=False,
         )
 

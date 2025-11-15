@@ -12,7 +12,7 @@ from ..config.config import SAVE_PLOTS, ATTACH_PLOT_ON_TEST, now_str, SRUUF_U3O8
 from ..data import compute_drawdown, apply_peak_window, compute_uranium_spot_from_sruuf, load_state, save_state
 from ..email.email_utils import send_email, make_email_subject, make_email_body
 from ..logging.logging_utils import append_csv_log
-from ..plotting.plotting import make_alert_plot
+from ..plotting import make_alert_plot
 
 
 class DipAlertRunner(AlertBaseRunner):
