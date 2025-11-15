@@ -185,6 +185,26 @@ python main.py --help
 
 ---
 
+## 🧪 Running tests with pytest (recommended)
+
+This project uses `unittest`-style tests but `pytest` is supported and recommended for development because it runs `unittest` tests and provides rich features.
+
+1. Install pytest in your virtual environment:
+```
+venv\Scripts\activate
+pip install pytest pytest-cov pytest-xdist
+```
+
+2. Run the tests via pytest (works with existing unittest tests):
+```
+pytest -q
+```
+
+3. If using VS Code, enable pytest under testing settings and set the test path to `tests` (the repo includes a `pytest.ini` already). This will avoid discovery errors.
+
+
+---
+
 ## 🔍 Test Modes
 
 ### Dip SMTP wiring test
