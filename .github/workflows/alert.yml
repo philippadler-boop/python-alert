@@ -1,12 +1,11 @@
-name: SPX Alerts — Daily (Dip + Trend)
+name: SPX Dip Alert (Daily)
 
 on:
   schedule:
-    # Weekdays at 16:30 Europe/Berlin = 15:30 UTC
-    - cron: "30 15 * * 1-5"
+    - cron: "30 15 * * 1-5"  # Runs daily at 16:30 Europe/Berlin (15:30 UTC)
 
 jobs:
-  daily:
+  run-alert:
     runs-on: ubuntu-latest
 
     env:
@@ -18,27 +17,36 @@ jobs:
       # Core behavior
       LOCAL_TZ: Europe/Berlin
       LOOKBACK_DAYS: "1095"
-      DRY_RUN: "0"               # LIVE mode!
+      DRY_RUN: "0"
       SAVE_PLOTS: "1"
       INLINE_IMAGE: "0"
-      RETENTION_DAYS: "365"
-      ATTACH_PLOT_ON_TEST: "1"   # irrelevant in daily mode
+      RETENTION_DAYS: "30"
 
-      # Peak window logic
-      PEAK_WINDOW: "1y"          # can override ENV here
-
-      # Dip / trend plot windows
       DIP_PLOT_LOOKBACK_DAYS: "180"
       TREND_PLOT_LOOKBACK_DAYS: "30"
 
-      # Directories (must match config.py)
+      PEAK_WINDOW: "1y"
+
       PLOTS_DIR: plots
       LOGS_DIR: logs
       STATE_DIR: state
 
     steps:
-      - name: Checkout repository
+      - name: Checkout code
         uses: actions/checkout@v4
+
+      # -------------------------------
+      # RESTORE STATE (persisted memory)
+      # -------------------------------
+      - name: Restore state cache
+        uses: actions/cache@v4
+        id: state-cache
+        with:
+          path: state
+          key: state-cache-v1
+
+      - name: Ensure state directory exists
+        run: mkdir -p state
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -50,22 +58,29 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Prepare directories
+      # -------------------------------
+      # MAIN EXECUTION (default = both modes)
+      # -------------------------------
+      - name: Run Alert Engine
         run: |
-          mkdir -p plots
-          mkdir -p logs
-          mkdir -p state
+          python main.py
 
-      - name: Run Dip + Trend alerts (all indices)
-        run: |
-          python main.py --index all --both-modes
+      # ----------------------------------
+      # SAVE BACK THE STATE FOR NEXT RUN
+      # ----------------------------------
+      - name: Save updated state cache
+        uses: actions/cache/save@v4
+        if: always()
+        with:
+          path: state
+          key: state-cache-v1
 
-      - name: Upload artifacts
+      - name: Upload logs and plots
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: daily-alert-artifacts
+          name: alert-artifacts
           path: |
-            plots
-            logs
+            plots/**
+            logs/**
           if-no-files-found: ignore
