@@ -20,6 +20,7 @@ from ..email.email_utils import (
     make_trend_entry_body,
 )
 from ..plotting.plotting import make_trend_plot
+from ..logging import logger
 
 
 @dataclass(frozen=True)
@@ -54,9 +55,8 @@ def load_trend_checklists() -> dict[str, list[str]]:
                 norm[k] = [str(item) for item in v]
         return norm
     except Exception as e:  # noqa: BLE001
-        print(
-            f"[{now_str()}] [WARN] Unable to load trend_checklists.json "
-            f"from {CHECKLIST_FILE!s} ({e}). Falling back to empty checklists."
+        logger.warning(
+            f"Unable to load trend_checklists.json from {CHECKLIST_FILE!s} ({e}). Falling back to empty checklists."
         )
         return {}
 
@@ -88,16 +88,27 @@ class TrendEntryRunner(AlertBaseRunner):
         
         series = series.dropna().sort_index()
         ma_series = ma_series.dropna().sort_index()
+        logger.debug(f"Trend align debug: series index dtype={series.index.dtype}, ma index dtype={ma_series.index.dtype}")
+        logger.debug(f"Trend align debug: series idx head={series.index[:3]}, ma idx head={ma_series.index[:3]}")
+        logger.debug(f"Trend align debug: lengths series={len(series)}, ma={len(ma_series)}")
+        logger.debug(f"Trend align debug: types: series={type(series)}, ma={type(ma_series)}")
         
-        common = series.index.intersection(ma_series.index)
-        series_aligned = series.loc[common]
-        ma_aligned = ma_series.loc[common]
+        # Align series and MA using pandas.align to preserve the datetime index
+        # and avoid misaligned operand errors when comparing the two.
+        series_aligned, ma_aligned = series.align(ma_series, join="inner")
         
         if series_aligned.empty or ma_aligned.empty:
             raise ValueError("No overlapping data between series and MA")
         
-        # Compute above/below flags
-        is_above = series_aligned > ma_aligned
+        # Compute above/below flags (handle unexpected alignment errors gracefully)
+        try:
+            is_above = series_aligned > ma_aligned
+        except Exception as e:  # alignment problem, try re-aligning
+            logger.debug(f"Trend comparison error: {e}; attempting explicit align")
+            series_aligned, ma_aligned = series_aligned.align(ma_aligned, join="inner")
+            if series_aligned.empty or ma_aligned.empty:
+                raise ValueError("No overlapping data between series and MA after align")
+            is_above = series_aligned > ma_aligned
         
         # Get last N+1 days (hold_days + 1 for crossover detection)
         last = is_above.iloc[-(profile.hold_days + 1):]
@@ -120,9 +131,7 @@ class TrendEntryRunner(AlertBaseRunner):
         _cached_ma: Optional[pd.Series] = None,
     ) -> None:
         if not self.is_enabled():
-            print(
-                f"[{now_str()}] Trend entry profile not enabled for index '{self.ix.id}'."
-            )
+            logger.info(f"Trend entry profile not enabled for index '{self.ix.id}'.")
             return
 
         profile = self.profile
@@ -155,7 +164,7 @@ class TrendEntryRunner(AlertBaseRunner):
                     hold_days=profile.hold_days,
                 )
         except ValueError as e:
-            print(f"[{now_str()}] [{self.ix.id}] Trend entry not evaluated: {e}")
+            logger.warning(f"[{self.ix.id}] Trend entry not evaluated: {e}")
             return
 
         # Determine hold window indices (last N days used in compute_trend_entry)
@@ -201,7 +210,7 @@ class TrendEntryRunner(AlertBaseRunner):
                 )
                 checklist = [spot_line] + checklist
             except Exception as e:
-                print(f"[{now_str()}] SRUUF spot computation failed (trend): {e}")
+                logger.warning(f"SRUUF spot computation failed (trend): {e}")
 
         # -------------- TEST MODE: always send email, optional plot --------------
         plot_path: Path | None = None
@@ -243,14 +252,11 @@ class TrendEntryRunner(AlertBaseRunner):
                     attachments=attachments,
                     inline_path=plot_path,
                 )
-                print(
-                    f"[{now_str()}] [{self.ix.id}] Trend-entry TEST email sent "
-                    f"(close {close_today:.2f}, MA{profile.ma_window} {ma_today:.2f})."
+                logger.info(
+                    f"[{self.ix.id}] Trend-entry TEST email sent (close {close_today:.2f}, MA{profile.ma_window} {ma_today:.2f})."
                 )
             except (smtplib.SMTPException, socket.timeout) as e:
-                print(
-                    f"[{now_str()}] [{self.ix.id}] ERROR sending trend test email: {e}"
-                )
+                logger.error(f"[{self.ix.id}] ERROR sending trend test email: {e}")
             # Do not touch state in test mode
             return
 
@@ -274,9 +280,8 @@ class TrendEntryRunner(AlertBaseRunner):
 
             state["trend_entry"] = trend_state
             save_state(state, self.ix)
-            print(
-                f"[{now_str()}] No trend entry alert for '{self.ix.id}'. "
-                f"(all_above={all_above}, crossed_from_below={crossed_from_below})"
+            logger.info(
+                f"No trend entry alert for '{self.ix.id}'. (all_above={all_above}, crossed_from_below={crossed_from_below})"
             )
             return
 
@@ -296,9 +301,7 @@ class TrendEntryRunner(AlertBaseRunner):
 
             state["trend_entry"] = trend_state
             save_state(state, self.ix)
-            print(
-                f"[{now_str()}] Trend entry for '{self.ix.id}' already alerted today."
-            )
+            logger.info(f"Trend entry for '{self.ix.id}' already alerted today.")
             return
 
         # Condition met and not yet alerted today → build plot (if enabled) and send
@@ -335,12 +338,11 @@ class TrendEntryRunner(AlertBaseRunner):
                 attachments=attachments_live,
                 inline_path=plot_path,
             )
-            print(
-                f"[{now_str()}] [{self.ix.id}] Trend entry alert sent "
-                f"(close {close_today:.2f}, MA{profile.ma_window} {ma_today:.2f})."
+            logger.info(
+                f"[{self.ix.id}] Trend entry alert sent (close {close_today:.2f}, MA{profile.ma_window} {ma_today:.2f})."
             )
         except (smtplib.SMTPException, socket.timeout) as e:
-            print(f"[{now_str()}] [{self.ix.id}] ERROR sending trend email: {e}")
+            logger.error(f"[{self.ix.id}] ERROR sending trend email: {e}")
             state["trend_entry"] = trend_state
             save_state(state, self.ix)
             return

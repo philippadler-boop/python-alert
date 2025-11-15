@@ -31,6 +31,10 @@ class CombinedRunner(AlertBaseRunner):
                 
                 # Cache MA200 so trend runner doesn't recompute it
                 ma = series.rolling(profile.ma_window).mean().dropna()
+                # Ensure the moving average is a Series (not a DataFrame)
+                if isinstance(ma, pd.DataFrame):
+                    logger.debug("CombinedRunner: MA computed as DataFrame; selecting last column for trend.")
+                    ma = ma.iloc[:, -1]
                 
                 # Pass pre-computed MA to avoid redundant calculation
                 self.trend.run(

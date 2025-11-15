@@ -14,6 +14,7 @@ from email.mime.application import MIMEApplication
 from email.utils import make_msgid
 
 from ..config.config import DRY_RUN, INLINE_IMAGE, now_str, IndexConfig
+from ..logging import logger
 from ..alerts.buckets import Bucket
 
 
@@ -208,11 +209,11 @@ def send_email(
 
     # DRY_RUN: only log, don't send
     if DRY_RUN:
-        print(f"[{now_str()}] DRY_RUN=1 — email not sent. Subject: {subject}")
+        logger.info(f"DRY_RUN=1 — email not sent. Subject: {subject}")
         return
 
     # Simpler SSL handling: rely on system / Python defaults (what worked for you before)
     with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
         server.login(from_email, app_pass)
         server.send_message(msg_root)
-        print(f"[{now_str()}] Email sent to {to_email} (subject: {subject})")
+        logger.info(f"Email sent to {to_email} (subject: {subject})")

@@ -4,7 +4,7 @@ from .config import INDEXES, DEFAULT_INDEX_ID, PEAK_WINDOW_DEFAULT, now_str
 from .alerts.dip_runner import DipAlertRunner
 from .alerts.trend_runner import TrendEntryRunner
 from .alerts.combined_runner import CombinedRunner
-from .logging import clean_old_plots, clean_old_log_rows
+from .logging import clean_old_plots, clean_old_log_rows, logger
 
 
 def _run_single_index(ix, args, peak_window: str, *, mode: str) -> None:
@@ -75,40 +75,35 @@ def run_from_args(args) -> None:
 
     # test-bucket only makes sense in dip mode; forbid for trend / both
     if test_bucket is not None and mode in ("trend", "both"):
-        print(
-            f"[{now_str()}] --test-bucket is only valid in dip mode "
-            "(no --trend-entry / --both-modes)."
+        logger.warning(
+            f"--test-bucket is only valid in dip mode (no --trend-entry / --both-modes)."
         )
         return
 
     # Combined mode + --test is ambiguous by design, keep semantics strict
     if mode == "both" and is_test:
-        print(
-            f"[{now_str()}] --test is not supported in combined mode (--both-modes). "
-            "Use dip-only or trend-only for testing."
+        logger.warning(
+            "--test is not supported in combined mode (--both-modes). Use dip-only or trend-only for testing."
         )
         return
 
     # For safety, don't allow '--index all' with test/test-bucket
     if ix_id == "all" and (is_test or test_bucket is not None):
-        print(
-            f"[{now_str()}] '--index all' cannot be combined with --test or "
-            "--test-bucket. Choose a specific index."
-        )
+        logger.warning("'--index all' cannot be combined with --test or --test-bucket. Choose a specific index.")
         return
 
     # ----------------- Dispatch -----------------
 
     if ix_id == "all":
         for ix_key, ix in INDEXES.items():
-            print(f"[{now_str()}] Running {mode} mode for index '{ix_key}'...")
+            logger.info(f"Running {mode} mode for index '{ix_key}'...")
             _run_single_index(ix, args, peak_window=peak_window, mode=mode)
         return
 
     ix = INDEXES.get(ix_id)
     if not ix:
         available = ", ".join(INDEXES.keys())
-        print(f"[{now_str()}] Unknown index '{ix_id}'. Available: {available}")
+        logger.error(f"Unknown index '{ix_id}'. Available: {available}")
         return
 
     _run_single_index(ix, args, peak_window=peak_window, mode=mode)

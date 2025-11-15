@@ -41,14 +41,14 @@ def setup_logging(level: str = "INFO") -> logging.Logger:
     
     # Console handler (simple format)
     console_handler = logging.StreamHandler(sys.stdout)
-    console_handler.setLevel(logging.INFO)
+    console_handler.setLevel(getattr(logging, level.upper(), logging.INFO))
     console_handler.setFormatter(simple_fmt)
     logger.addHandler(console_handler)
     
     # File handler (detailed format)
     try:
         file_handler = logging.FileHandler(LOG_FILE, encoding="utf-8")
-        file_handler.setLevel(logging.DEBUG)
+        file_handler.setLevel(getattr(logging, level.upper(), logging.DEBUG))
         file_handler.setFormatter(detailed_fmt)
         logger.addHandler(file_handler)
     except Exception as e:

@@ -3,6 +3,8 @@ from __future__ import annotations
 import argparse
 
 from src import DEFAULT_BUCKETS, INDEXES, DEFAULT_INDEX_ID, run_from_args
+from src.logging import setup_logging
+import os
 
 
 def parse_args() -> argparse.Namespace:
@@ -107,6 +109,9 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     """CLI entry point."""
+    # Ensure logging is configured early
+    log_level = os.getenv("LOG_LEVEL", "INFO")
+    setup_logging(log_level)
     args = parse_args()
     run_from_args(args)
 

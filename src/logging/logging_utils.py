@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Optional
 
 from ..config.config import LOCAL_TZ, RETENTION_DAYS, now_str, SPX_INDEX, IndexConfig
+from ..logging import logger
 from ..alerts.buckets import Bucket
 
 
@@ -77,9 +78,9 @@ def clean_old_plots(plots_dir: Path) -> int:
                 p.unlink(missing_ok=True)
                 deleted += 1
         except Exception as e:  # noqa: BLE001
-            print(f"[{now_str()}] Plot cleanup skipped for {p.name}: {e}")
+            logger.warning(f"Plot cleanup skipped for {p.name}: {e}")
     if deleted:
-        print(f"[{now_str()}] Plot cleanup: removed {deleted} old file(s).")
+        logger.info(f"Plot cleanup: removed {deleted} old file(s).")
     return deleted
 
 
@@ -120,9 +121,9 @@ def clean_old_log_rows(ix: IndexConfig = SPX_INDEX) -> int:
                 w.writerow(header)
                 w.writerows(kept)
             tmp.replace(csv_path)
-            print(f"[{now_str()}] Log cleanup: removed {removed} old row(s).")
+            logger.info(f"Log cleanup: removed {removed} old row(s).")
 
         return removed
     except Exception as e:  # noqa: BLE001
-        print(f"[{now_str()}] Log cleanup error: {e}")
+        logger.error(f"Log cleanup error: {e}")
         return 0

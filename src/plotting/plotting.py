@@ -5,6 +5,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.ticker import MaxNLocator, PercentFormatter
 from ..config.config import now_str, DIP_PLOT_LOOKBACK_DAYS, TREND_PLOT_LOOKBACK_DAYS
+from ..logging import logger
 
 def _make_path(ix, prefix):
     ts=now_str().replace(':','').replace('-','').replace('T','_')
@@ -44,7 +45,7 @@ def make_alert_plot(ix, series, title: str | None = None) -> Path | None:
         if close.empty or recent_high.empty:
             raise ValueError("Not enough data in plotting window.")
 
-        out = _make_path(ix, "alert")
+        out = _make_path(ix, "dip_alert")
 
         # Reference values
         max_recent_high = float(recent_high.max())
@@ -115,7 +116,7 @@ def make_alert_plot(ix, series, title: str | None = None) -> Path | None:
         return out
 
     except Exception as e:  # noqa: BLE001
-        print(f"[{now_str()}] Dip plot error: {e}")
+        logger.error(f"[{now_str()}] Dip plot error: {e}")
         return None
 
 
@@ -204,5 +205,5 @@ def make_trend_plot(
         return out
 
     except Exception as e:  # noqa: BLE001
-        print(f"[{now_str()}] Trend plot error: {e}")
+        logger.error(f"[{now_str()}] Trend plot error: {e}")
         return None

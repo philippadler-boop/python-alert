@@ -13,6 +13,7 @@ from ..data import compute_drawdown, apply_peak_window, compute_uranium_spot_fro
 from ..email.email_utils import send_email, make_email_subject, make_email_body
 from ..logging.logging_utils import append_csv_log
 from ..plotting import make_alert_plot
+from ..logging import logger
 
 
 class DipAlertRunner(AlertBaseRunner):
@@ -34,7 +35,7 @@ class DipAlertRunner(AlertBaseRunner):
             "✓ SMTP connection successful."
         )
         send_email(subject, body_text=body)
-        print(f"[{now_str()}] Dip test email sent.")
+        logger.info(f"Dip test email sent.")
 
     def run_test_bucket(self, bucket_id: str, show_plot: bool) -> None:
         """Simulate a bucket alert without touching state."""
@@ -44,7 +45,7 @@ class DipAlertRunner(AlertBaseRunner):
 
         bucket = next((b for b in self.buckets if b.id == bucket_id), None)
         if bucket is None:
-            print(f"[{now_str()}] Unknown bucket {bucket_id}")
+            logger.warning(f"Unknown bucket {bucket_id}")
             return
 
         # --- SRUUF-only: compute implied uranium spot for test mail ---
@@ -60,7 +61,7 @@ class DipAlertRunner(AlertBaseRunner):
                     f"{spot:.2f} USD/lb (approx.)."
                 )
             except Exception as e:
-                print(f"[{now_str()}] SRUUF spot computation failed (test): {e}")
+                logger.warning(f"SRUUF spot computation failed (test): {e}")
         note = " ".join(note_parts)
 
         plot_path: Path | None = None
@@ -116,7 +117,7 @@ class DipAlertRunner(AlertBaseRunner):
             self.ix.ticker,
             is_test=True,
         )
-        print(f"[{now_str()}] Test bucket email sent for {bucket.id}.")
+        logger.info(f"Test bucket email sent for {bucket.id}.")
 
     # -------- normal dip run --------
 
@@ -128,19 +129,15 @@ class DipAlertRunner(AlertBaseRunner):
         bucket = pick_bucket(dd, self.buckets)
 
         if not bucket:
-            print(
-                f"[{now_str()}] No dip alert. [{self.ix.id}] DD {dd:.2f}% "
-                f"(close {close:.2f}, peak {peak:.2f})."
+            logger.info(
+                f"No dip alert. [{self.ix.id}] DD {dd:.2f}% (close {close:.2f}, peak {peak:.2f})."
             )
             return
 
         peak_key = str(peak_date.date())
         already = state.get("fired_buckets", {}).get(peak_key, [])
         if bucket.id in already:
-            print(
-                f"[{now_str()}] [{self.ix.id}] Bucket {bucket.id} "
-                f"already fired for this peak."
-            )
+            logger.info(f"[{self.ix.id}] Bucket {bucket.id} already fired for this peak.")
             return
 
         # --- SRUUF-only: compute implied uranium spot for live mail ---
@@ -156,7 +153,7 @@ class DipAlertRunner(AlertBaseRunner):
                     f"{spot:.2f} USD/lb (approx.)."
                 )
             except Exception as e:
-                print(f"[{now_str()}] SRUUF spot computation failed (live): {e}")
+                logger.warning(f"SRUUF spot computation failed (live): {e}")
 
         plot_path: Path | None = None
         if SAVE_PLOTS:
@@ -197,10 +194,10 @@ class DipAlertRunner(AlertBaseRunner):
                 attachments=attachments,
                 inline_path=plot_path,
             )
-            print(f"[{now_str()}] [{self.ix.id}] LIVE dip alert sent.")
+            logger.info(f"[{self.ix.id}] LIVE dip alert sent.")
         except Exception:
-            # Do not update state on failure
-            return
+                # Do not update state on failure
+                return
 
         state.setdefault("fired_buckets", {}).setdefault(peak_key, []).append(
             bucket.id
@@ -218,7 +215,7 @@ class DipAlertRunner(AlertBaseRunner):
             self.ix.ticker,
             is_test=False,
         )
-        print(f"[{now_str()}] [{self.ix.id}] Dip alert logged and state updated.")
+        logger.info(f"[{self.ix.id}] Dip alert logged and state updated.")
 
     def run(self, show_plot: bool) -> None:
         """Normal dip run: fetch series and evaluate buckets."""
