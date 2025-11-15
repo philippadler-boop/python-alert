@@ -3,7 +3,7 @@ from __future__ import annotations
 import datetime as dt, time
 from typing import Tuple
 import pandas as pd, yfinance as yf
-from ..config.config import SPX_INDEX, IndexConfig, now_str
+from ..config.config import SPX_INDEX, IndexConfig, now_str, YFINANCE_TIMEOUT_SECONDS, YFINANCE_RETRY_ATTEMPTS, YFINANCE_RETRY_DELAY_SECONDS
 
 def fetch_series(ix: IndexConfig = SPX_INDEX) -> pd.Series:
     lookback_days = getattr(ix, "lookback_days", 1095)
@@ -12,10 +12,10 @@ def fetch_series(ix: IndexConfig = SPX_INDEX) -> pd.Series:
     start = end - dt.timedelta(days=int(lookback_days))
 
     last_exc = None
-    for attempt in range(1, 4):
+    for attempt in range(1, YFINANCE_RETRY_ATTEMPTS + 1):
         try:
             print(f"[{now_str()}] Fetching {ix.ticker} (attempt {attempt}) from {start} to {end}...")
-            data = yf.download(ix.ticker, start=start, end=end, progress=False, auto_adjust=False, timeout=30)
+            data = yf.download(ix.ticker, start=start, end=end, progress=False, auto_adjust=False, timeout=YFINANCE_TIMEOUT_SECONDS)
 
             if data is None or data.empty:
                 raise RuntimeError("Empty result")
@@ -37,7 +37,7 @@ def fetch_series(ix: IndexConfig = SPX_INDEX) -> pd.Series:
 
         except Exception as e:
             last_exc = e
-            time.sleep(2)
+            time.sleep(YFINANCE_RETRY_DELAY_SECONDS)
 
     raise RuntimeError(f"Failed to fetch data for {ix.ticker}") from last_exc
 

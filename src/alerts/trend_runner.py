@@ -71,12 +71,53 @@ class TrendEntryRunner(AlertBaseRunner):
     def is_enabled(self) -> bool:
         return self.profile is not None and self.profile.enabled
 
+    @staticmethod
+    def _compute_trend_from_ma(
+        series: pd.Series,
+        ma_series: pd.Series,
+        profile: TrendEntryProfile,
+    ) -> tuple:
+        """Compute trend entry metrics from pre-computed MA series.
+        
+        Returns:
+            (close_today, ma_today, pct_diff, all_above, crossed_from_below, today_idx, is_above_flags)
+        """
+        # Align series with MA
+        if isinstance(series, pd.DataFrame):
+            series = series.iloc[:, -1]
+        
+        series = series.dropna().sort_index()
+        ma_series = ma_series.dropna().sort_index()
+        
+        common = series.index.intersection(ma_series.index)
+        series_aligned = series.loc[common]
+        ma_aligned = ma_series.loc[common]
+        
+        if series_aligned.empty or ma_aligned.empty:
+            raise ValueError("No overlapping data between series and MA")
+        
+        # Compute above/below flags
+        is_above = series_aligned > ma_aligned
+        
+        # Get last N+1 days (hold_days + 1 for crossover detection)
+        last = is_above.iloc[-(profile.hold_days + 1):]
+        all_above = bool(last.iloc[1:].all())
+        crossed_from_below = (last.iloc[0] == False) and all_above
+        
+        idx = last.index[-1]
+        c = float(series_aligned.loc[idx])
+        m = float(ma_aligned.loc[idx])
+        pct = (c / m - 1) * 100
+        
+        return c, m, pct, all_above, crossed_from_below, idx, is_above
+
     def run(
         self,
         series: Optional[pd.Series] = None,
         *,
         is_test: bool = False,
         show_plot: bool = False,
+        _cached_ma: Optional[pd.Series] = None,
     ) -> None:
         if not self.is_enabled():
             print(
@@ -91,20 +132,28 @@ class TrendEntryRunner(AlertBaseRunner):
             series = self.fetch_series()
 
         try:
-            (
-                close_today,
-                ma_today,
-                pct_diff,
-                all_above,
-                crossed_from_below,
-                today_idx,
-                ma_series,
-                is_above_flags,
-            ) = compute_trend_entry(
-                series,
-                ma_window=profile.ma_window,
-                hold_days=profile.hold_days,
-            )
+            # Use cached MA200 if provided (from combined mode), otherwise compute it
+            if _cached_ma is not None:
+                # Cached MA provided; use it directly
+                ma_series = _cached_ma
+                close_today, ma_today, pct_diff, all_above, crossed_from_below, today_idx, is_above_flags = \
+                    self._compute_trend_from_ma(series, ma_series, profile)
+            else:
+                # Standard path: compute trend entry with fresh MA200
+                (
+                    close_today,
+                    ma_today,
+                    pct_diff,
+                    all_above,
+                    crossed_from_below,
+                    today_idx,
+                    ma_series,
+                    is_above_flags,
+                ) = compute_trend_entry(
+                    series,
+                    ma_window=profile.ma_window,
+                    hold_days=profile.hold_days,
+                )
         except ValueError as e:
             print(f"[{now_str()}] [{self.ix.id}] Trend entry not evaluated: {e}")
             return

@@ -19,6 +19,20 @@ ROOT_DIR: Path = Path(__file__).resolve().parent.parent.parent
 # Core settings (global knobs)
 # ---------------------------------------------------------------------
 
+# Time windows (in days)
+DAYS_PER_YEAR: int = 365
+LOOKBACK_DAYS_DEFAULT: int = 1095  # 3 years
+RETENTION_DAYS_DEFAULT: int = 30
+DIP_PLOT_LOOKBACK_DAYS_DEFAULT: int = 180  # 6 months
+TREND_PLOT_LOOKBACK_DAYS_DEFAULT: int = 30  # 1 month
+MA_WINDOW_DEFAULT: int = 200  # Moving average window
+TREND_HOLD_DAYS_DEFAULT: int = 5  # Days to hold above MA before alert
+
+# Network settings
+YFINANCE_TIMEOUT_SECONDS: int = 30
+YFINANCE_RETRY_ATTEMPTS: int = 3
+YFINANCE_RETRY_DELAY_SECONDS: int = 2
+
 # How to define the "recent high" window for drawdown:
 #  - "1y"            → last 365 days
 #  - "ytd"           → since Jan 1 of current year
@@ -33,7 +47,7 @@ INDEX_TICKER: str = os.getenv("INDEX_TICKER", "^GSPC")
 NDX_TICKER: str = os.getenv("NDX_TICKER", "^NDX")
 
 # How many calendar days of history to fetch
-LOOKBACK_DAYS: int = int(os.getenv("LOOKBACK_DAYS", "1095"))
+LOOKBACK_DAYS: int = int(os.getenv("LOOKBACK_DAYS", str(LOOKBACK_DAYS_DEFAULT)))
 
 # Local timezone for timestamps
 LOCAL_TZ: ZoneInfo = ZoneInfo(os.getenv("LOCAL_TZ", "Europe/Berlin"))
@@ -51,7 +65,7 @@ INLINE_IMAGE: bool = os.getenv("INLINE_IMAGE", "0") == "1"
 ATTACH_PLOT_ON_TEST: bool = os.getenv("ATTACH_PLOT_ON_TEST", "1") == "1"
 
 # How long to keep logs and plots
-RETENTION_DAYS: int = int(os.getenv("RETENTION_DAYS", "30"))
+RETENTION_DAYS: int = int(os.getenv("RETENTION_DAYS", str(RETENTION_DAYS_DEFAULT)))
 
 # Base directories
 STATE_DIR: Path = (ROOT_DIR / "01_state").resolve()
@@ -59,8 +73,8 @@ LOGS_DIR: Path = (ROOT_DIR / "02_logs").resolve()
 PLOTS_DIR: Path = (ROOT_DIR / "03_plots").resolve()
 
 # Plot lookback window (shorter window than fetch horizon)
-DIP_PLOT_LOOKBACK_DAYS = int(os.getenv("DIP_PLOT_LOOKBACK_DAYS", "180"))
-TREND_PLOT_LOOKBACK_DAYS = int(os.getenv("TREND_PLOT_LOOKBACK_DAYS", "30"))
+DIP_PLOT_LOOKBACK_DAYS = int(os.getenv("DIP_PLOT_LOOKBACK_DAYS", str(DIP_PLOT_LOOKBACK_DAYS_DEFAULT)))
+TREND_PLOT_LOOKBACK_DAYS = int(os.getenv("TREND_PLOT_LOOKBACK_DAYS", str(TREND_PLOT_LOOKBACK_DAYS_DEFAULT)))
 
 # Ensure base directories exist
 PLOTS_DIR.mkdir(parents=True, exist_ok=True)
