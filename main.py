@@ -18,9 +18,13 @@ def parse_args() -> argparse.Namespace:
         epilog=(
             "Examples:\n"
             "  python main.py --index all --both-modes          # Run both dip + trend in combined mode\n"
+            "  alert --index all --both-modes                   # (after `pip install -e .`) run via CLI command\n"
             "  python main.py --index sox --dip-entry           # Dip alerts only\n"
+            "  alert --index sox --dip-entry                    # (preferred)\n"
             "  python main.py --index srvr --trend-entry --test # Test trend email\n"
+            "  alert --index srvr --trend-entry --test         # (preferred)\n"
             "  python main.py --index spx --test-bucket B20     # Simulate dip bucket\n"
+            "  alert --index spx --test-bucket B20              # (preferred)\n"
             "  python main.py --help                            # Show this help"
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,

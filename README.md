@@ -163,6 +163,15 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
+### 3a. (Optional) Install the CLI entry point
+If you'd like to call the tool as `alert` rather than `python main.py`, install the project in editable mode:
+
+```
+pip install -e .
+```
+
+This creates the `alert` console script in your active environment; call `alert --help` to verify.
+
 ### 4. Dip-only run
 ```
 python main.py --index sox --dip-entry
@@ -178,9 +187,21 @@ python main.py --index srvr --trend-entry
 python main.py --index all --both-modes
 ```
 
+Or, after installing the CLI:
+
+```
+alert --index all --both-modes
+```
+
 ### 7. View help
 ```
 python main.py --help
+```
+
+Or via the installed CLI:
+
+```
+alert --help
 ```
 
 ---
@@ -213,17 +234,35 @@ python main.py --index spx --dip-entry --test
 ```
 Sends a test email to verify SMTP configuration.
 
+Or:
+
+```
+alert --index spx --dip-entry --test
+```
+
 ### Dip bucket simulation
 ```
 python main.py --index sruuf --dip-entry --test-bucket B20
 ```
 Simulates a dip alert for bucket B20 (no state change, email sent).
 
+Or:
+
+```
+alert --index sruuf --dip-entry --test-bucket B20
+```
+
 ### Trend-entry test
 ```
 python main.py --index sox --trend-entry --test
 ```
 Sends a test trend-entry email (no state change).
+
+Or:
+
+```
+alert --index sox --trend-entry --test
+```
 
 ---
 
@@ -277,6 +316,8 @@ Runs weekday at 16:30 Europe/Berlin:
 
 ```
 python main.py --index all --both-modes
+# or on a runner where the package is installed:
+alert --index all --both-modes
 ```
 
 Artifacts include:
