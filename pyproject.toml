@@ -1,0 +1,49 @@
+[build-system]
+requires = ["setuptools>=65.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "python-alert"
+version = "0.1.0"
+description = "Dip Alert / Trend Entry — drawdown-based dip alerts and MA200-based trend-entry alerts"
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [
+    {name = "Philipp Adler", email = "philippadler-boop@users.noreply.github.com"},
+]
+license = {text = "MIT"}
+
+dependencies = [
+    "python-dotenv>=1.0.0",
+    "yfinance>=0.2.0",
+    "pandas>=2.0.0",
+    "matplotlib>=3.7.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "pytest-xdist>=3.0.0",
+]
+
+[project.scripts]
+alert = "src.cli:main"
+
+[tool.setuptools.package-data]
+python_alert = ["py.typed"]
+
+[tool.setuptools]
+packages = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "-v"
+
+[tool.black]
+line-length = 100
+target-version = ["py310", "py311", "py313"]
+
+[tool.pylint]
+disable = ["missing-docstring", "too-many-arguments"]
