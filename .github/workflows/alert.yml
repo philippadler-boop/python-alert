@@ -77,7 +77,8 @@ jobs:
       # ----------------------------------
       - name: Save updated state cache
         uses: actions/cache/save@v4
-        if: always()
+        # Only attempt to save when the cache was not restored (avoids reservation collisions)
+        if: steps.state-cache.outputs.cache-hit != 'true'
         with:
           path: state
           key: state-cache-v1
