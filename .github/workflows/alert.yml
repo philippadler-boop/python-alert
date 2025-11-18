@@ -3,6 +3,12 @@ name: SPX Dip Alert (Daily)
 on:
   schedule:
     - cron: "30 15 * * 1-5"  # Runs daily at 16:30 Europe/Berlin (15:30 UTC)
+  workflow_dispatch:
+    inputs:
+      am:
+        description: 'Run AM manual alert (true/false)'
+        required: false
+        default: 'false'
 
 jobs:
   run-alert:
@@ -18,6 +24,7 @@ jobs:
       LOCAL_TZ: Europe/Berlin
       LOOKBACK_DAYS: "1095"
       DRY_RUN: "0"
+      MANUAL_AM: ${{ github.event.inputs.am || 'false' }}
       SAVE_PLOTS: "1"
       INLINE_IMAGE: "0"
       RETENTION_DAYS: "30"
