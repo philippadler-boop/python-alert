@@ -70,7 +70,7 @@ jobs:
       # -------------------------------
       - name: Run Alert Engine
         run: |
-          python main.py
+          python main.py --index all
 
       # ----------------------------------
       # SAVE BACK THE STATE FOR NEXT RUN
