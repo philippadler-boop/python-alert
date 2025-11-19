@@ -82,6 +82,19 @@ REMX_BUCKETS: List[Bucket] = [
 ]
 
 
+# 5) Procure Space ETF (UFO) — similar deep-drawdown behavior to REMX but handled separately
+UFO_BUCKETS: List[Bucket] = [
+    Bucket("B10", -20.0, -10.0, "Deploy 10% of Cash Bucket (space ETF first buy)"),
+    Bucket("B20", -40.0, -20.0, "Deploy 20% of Cash Bucket (space ETF second buy)"),
+    Bucket(
+        "B70",
+        -999.0,
+        -40.0,
+        "Deploy remaining 70% in weekly tranches (deep space ETF drawdown)",
+    ),
+]
+
+
 # Registry mapping index ids (config.id) → bucket set
 BUCKETS_BY_INDEX_ID: Dict[str, List[Bucket]] = {
     # Baseline: SPX / NDX
@@ -93,6 +106,7 @@ BUCKETS_BY_INDEX_ID: Dict[str, List[Bucket]] = {
     "srvr": SRVR_BUCKETS,
     "sruuf": SRUUF_BUCKETS,
     "remx": REMX_BUCKETS,
+    "ufo": UFO_BUCKETS,
 }
 
 

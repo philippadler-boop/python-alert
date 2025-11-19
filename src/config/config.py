@@ -215,6 +215,17 @@ REMX_INDEX: IndexConfig = IndexConfig(
 )
 
 
+UFO_INDEX: IndexConfig = IndexConfig(
+    id="ufo",
+    name="Procure Space ETF",
+    ticker="UFO",
+    lookback_days=LOOKBACK_DAYS,
+    state_file=STATE_DIR / "ufo_alert_state.json",
+    log_csv=LOGS_DIR / "ufo_dip_alert_log.csv",
+    plots_dir=PLOTS_DIR / "ufo",
+)
+
+
 # Registry of available indices
 INDEXES: Dict[str, IndexConfig] = {
     "spx": SPX_INDEX,
@@ -223,6 +234,7 @@ INDEXES: Dict[str, IndexConfig] = {
     "srvr": SRVR_INDEX,
     "sruuf": SRUUF_INDEX,
     "remx": REMX_INDEX,
+    "ufo": UFO_INDEX,
 }
 
 # Default index id
