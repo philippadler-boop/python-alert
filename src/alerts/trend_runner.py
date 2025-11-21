@@ -37,6 +37,7 @@ TREND_PROFILES: dict[str, TrendEntryProfile] = {
     "sox": TrendEntryProfile(id="sox"),
     "srvr": TrendEntryProfile(id="srvr"),
     "sruuf": TrendEntryProfile(id="sruuf"),
+    "btc": TrendEntryProfile(id="btc", hold_days=3, ma_window=200),
     # Add "remx": TrendEntryProfile(id="remx") if you want REMX trend-entry as well.
 }
 

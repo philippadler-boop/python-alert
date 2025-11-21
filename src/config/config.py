@@ -225,6 +225,16 @@ UFO_INDEX: IndexConfig = IndexConfig(
     plots_dir=PLOTS_DIR / "ufo",
 )
 
+BTC_INDEX: IndexConfig = IndexConfig(
+    id="btc",
+    name="Bitcoin",
+    ticker="BTC-USD",
+    lookback_days=LOOKBACK_DAYS,
+    state_file=STATE_DIR / "btc_alert_state.json",
+    log_csv=LOGS_DIR / "btc_dip_alert_log.csv",
+    plots_dir=PLOTS_DIR / "btc",
+)
+
 
 # Registry of available indices
 INDEXES: Dict[str, IndexConfig] = {
@@ -235,6 +245,7 @@ INDEXES: Dict[str, IndexConfig] = {
     "sruuf": SRUUF_INDEX,
     "remx": REMX_INDEX,
     "ufo": UFO_INDEX,
+    "btc": BTC_INDEX,
 }
 
 # Default index id

@@ -94,6 +94,18 @@ UFO_BUCKETS: List[Bucket] = [
     ),
 ]
 
+# 6) Bitcoin (BTC-USD) — very high volatility, deep swings are normal
+BTC_BUCKETS: List[Bucket] = [
+    Bucket("B10", -30.0, -20.0, "Deploy 10% of Cash Bucket (Bitcoin first buy)"),
+    Bucket("B20", -45.0, -30.0, "Deploy 20% of Cash Bucket (Bitcoin second buy)"),
+    Bucket(
+        "B70",
+        -999.0,
+        -45.0,
+        "Deploy remaining 70% in weekly tranches (deep Bitcoin drawdown)",
+    ),
+]
+
 
 # Registry mapping index ids (config.id) → bucket set
 BUCKETS_BY_INDEX_ID: Dict[str, List[Bucket]] = {
@@ -107,6 +119,7 @@ BUCKETS_BY_INDEX_ID: Dict[str, List[Bucket]] = {
     "sruuf": SRUUF_BUCKETS,
     "remx": REMX_BUCKETS,
     "ufo": UFO_BUCKETS,
+    "btc": BTC_BUCKETS,
 }
 
 

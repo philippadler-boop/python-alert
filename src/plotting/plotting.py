@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 import pandas as pd
 import matplotlib.pyplot as plt
-from matplotlib.ticker import MaxNLocator, PercentFormatter
+from matplotlib.ticker import MaxNLocator
 from ..config.config import now_str, DIP_PLOT_LOOKBACK_DAYS, TREND_PLOT_LOOKBACK_DAYS
 from ..logging import logger
 
@@ -12,6 +12,53 @@ def _make_path(ix, prefix):
     p=ix.plots_dir/f"{ix.id}_{prefix}_{ts}.png"
     p.parent.mkdir(parents=True,exist_ok=True)
     return p
+
+
+def _coerce_series(data):
+    """Return a clean pandas Series (dropna + sorted) or None for missing data."""
+    if data is None:
+        return None
+    if isinstance(data, pd.DataFrame):
+        data = data.iloc[:, -1]
+    if not isinstance(data, pd.Series):
+        raise TypeError("Plotting expects pandas Series inputs")
+    return data.dropna().sort_index()
+
+
+def _trim_to_window(series: pd.Series, cutoff: pd.Timestamp) -> pd.Series:
+    """Trim a series to dates greater than or equal to the cutoff."""
+    return series.loc[series.index >= cutoff]
+
+
+def _prepare_optional_series(base_index: pd.Index, data):
+    series = _coerce_series(data)
+    if series is None or series.empty:
+        return None
+    overlap = base_index.intersection(series.index)
+    if overlap.empty:
+        return None
+    return series.loc[overlap]
+
+
+def _plot_rsi_panel(ax, rsi: pd.Series | None, opt_b: bool):
+    """Render the RSI subplot (with Option B highlight when requested)."""
+    ax.set_ylabel("RSI")
+    ax.set_ylim(0, 100)
+    ax.axhline(50, linestyle="--", color="#999999", linewidth=0.8)
+    ax.axhline(40, linestyle=":", color="#d62728", linewidth=0.8)
+
+    if rsi is None or rsi.empty:
+        ax.text(0.5, 0.5, "No RSI data", ha="center", va="center", transform=ax.transAxes, fontsize=9, color="#666666")
+        return
+
+    ax.plot(rsi.index, rsi, color="#9467bd")
+    ax.fill_between(rsi.index, rsi, 40, where=(rsi < 40), color="#d62728", alpha=0.12)
+
+    if opt_b:
+        today = rsi.index[-1]
+        val = rsi.iloc[-1]
+        scalar = val.item() if hasattr(val, "item") else float(val)
+        ax.scatter([today], [scalar], s=70, color="#d62728", edgecolor="k")
 
 def make_alert_plot(ix, series, title: str | None = None) -> Path | None:
     """
@@ -142,115 +189,75 @@ def make_trend_plot(
     - Vertical line for every day in the series window.
     """
     try:
-        # Handle DataFrame/Series
-        if isinstance(close, pd.DataFrame):
-            close = close.iloc[:, -1]
-
-        close = close.dropna().sort_index()
-        ma = ma.dropna().sort_index()
-
-        if close.empty or ma.empty:
+        close = _coerce_series(close)
+        ma = _coerce_series(ma)
+        if close is None or close.empty or ma is None or ma.empty:
             raise ValueError("No data for trend plotting.")
 
-        # Align indices
         common = close.index.intersection(ma.index)
         close = close.loc[common]
         ma = ma.loc[common]
-
         if close.empty:
             raise ValueError("No overlapping data for trend plotting.")
 
-        # Apply shorter lookback for trend plot
         cutoff = close.index.max() - pd.Timedelta(days=TREND_PLOT_LOOKBACK_DAYS)
-        close = close.loc[close.index >= cutoff]
-        ma = ma.loc[ma.index >= cutoff]
-
+        close = _trim_to_window(close, cutoff)
+        ma = _trim_to_window(ma, cutoff)
+        common = close.index.intersection(ma.index)
+        close = close.loc[common]
+        ma = ma.loc[common]
         if close.empty or ma.empty:
             raise ValueError("Not enough data in trend plotting window.")
 
+        window_index = close.index
+        ma50_series = _prepare_optional_series(window_index, ma50)
+        rsi_series = _prepare_optional_series(window_index, rsi)
+
         out = _make_path(ix, "trend")
 
-        # Create two-row layout: price (with MA50) and RSI
-        fig = plt.figure(figsize=(10, 6), dpi=300)
-        gs = fig.add_gridspec(nrows=2, ncols=1, height_ratios=[3, 1], hspace=0.25)
+        fig, (ax, ax_rsi) = plt.subplots(
+            2,
+            1,
+            figsize=(10, 6),
+            dpi=300,
+            sharex=True,
+            gridspec_kw={"height_ratios": [3, 1]},
+        )
 
-        ax = fig.add_subplot(gs[0, 0])
-        ax_rsi = fig.add_subplot(gs[1, 0], sharex=ax)
+        ma_label = ma.name or "MA"
+        ax.plot(window_index, close, label="Close")
+        ax.plot(ma.index, ma, "--", label=ma_label)
 
-        # PRICE PANEL: main close and MA
-        ax.plot(close.index, close, label="Close")
-        ax.plot(ma.index, ma, "--", label=f"MA{len(ma)}" if hasattr(ma, "shape") else "MA")
+        if ma50_series is not None:
+            ax.plot(ma50_series.index, ma50_series, "-.", label="MA50", color="#2ca02c")
 
-        # Optional 50MA overlay
-        if ma50 is not None:
-            try:
-                ma50 = ma50.dropna().sort_index()
-                common50 = close.index.intersection(ma50.index)
-                ax.plot(ma50.loc[common50].index, ma50.loc[common50], "-.", label="MA50", color="#2ca02c")
-            except Exception:
-                pass
-
-        # Shading above MA
         above = close > ma
-        ax.fill_between(close.index, close, ma, where=above, alpha=0.12)
+        ax.fill_between(window_index, close, ma, where=above, alpha=0.12)
 
-        # Shading for hold window (last N days)
         if hold_indices is not None:
-            hold_set = set(pd.to_datetime(list(hold_indices)))
-            mask = close.index.isin(hold_set)
-            ax.fill_between(close.index, close, ma, where=mask, alpha=0.25)
+            hold_idx = pd.to_datetime(list(hold_indices))
+            hold_mask = window_index.isin(hold_idx)
+            if hold_mask.any():
+                ax.fill_between(window_index, close, ma, where=hold_mask, alpha=0.25)
 
-        # Marker for cross point and Option A
         if cross_idx is not None:
             cross_idx = pd.to_datetime(cross_idx)
-            if cross_idx in close.index:
-                ax.scatter([cross_idx], [close.loc[cross_idx]], s=80, zorder=5, edgecolor="k")
+            if cross_idx in window_index:
+                price_at_cross = close.loc[cross_idx]
+                ax.scatter([cross_idx], [price_at_cross], s=80, zorder=5, edgecolor="k")
                 if opt_a:
-                    # highlight with star
-                    ax.scatter([cross_idx], [close.loc[cross_idx]], s=140, marker="*", color="#ff7f0e", zorder=6, edgecolor="k")
+                    ax.scatter([cross_idx], [price_at_cross], s=140, marker="*", color="#ff7f0e", zorder=6, edgecolor="k")
 
         ax.set_title(title or f"{ix.name} — Trend vs MA")
         ax.set_ylabel("Price")
-
-        # Vertical line for every day in the series
-        for ts in close.index:
+        for ts in window_index:
             ax.axvline(ts, linestyle="-", linewidth=0.35, alpha=0.12)
-
         ax.grid(True, which="major", axis="y", alpha=0.2)
 
-        # RSI PANEL — always present; if data missing show placeholder axes
-        try:
-            ax_rsi.set_ylabel("RSI")
-            ax_rsi.set_ylim(0, 100)
-            ax_rsi.axhline(50, linestyle="--", color="#999999", linewidth=0.8)
-            ax_rsi.axhline(40, linestyle=":", color="#d62728", linewidth=0.8)
-            if rsi is not None:
-                rsi = rsi.dropna().sort_index()
-                common_rsi = close.index.intersection(rsi.index)
-                if not common_rsi.empty:
-                    ax_rsi.plot(rsi.loc[common_rsi].index, rsi.loc[common_rsi], color="#9467bd")
-                    ax_rsi.fill_between(rsi.loc[common_rsi].index, rsi.loc[common_rsi], 40, where=(rsi.loc[common_rsi] < 40), color="#d62728", alpha=0.12)
-                    # Highlight today's RSI if opt_b is True
-                    if opt_b and (common_rsi.size > 0):
-                        today = common_rsi[-1]
-                        v = rsi.loc[today]
-                        # extract scalar
-                        val = v.item() if hasattr(v, "item") else float(v)
-                        ax_rsi.scatter([today], [val], s=70, color="#d62728", edgecolor="k")
-                else:
-                    # No overlapping RSI data — annotate
-                    ax_rsi.text(0.5, 0.5, "No RSI data", ha="center", va="center", transform=ax_rsi.transAxes, fontsize=9, color="#666666")
-            else:
-                ax_rsi.text(0.5, 0.5, "No RSI data", ha="center", va="center", transform=ax_rsi.transAxes, fontsize=9, color="#666666")
-        except Exception:
-            # If plotting RSI fails, ensure axis remains but continue
-            pass
+        _plot_rsi_panel(ax_rsi, rsi_series, opt_b)
 
-        # Legend & layout
         ax.legend(loc="upper left")
         fig.autofmt_xdate()
-        # Use gridspec spacing (already set via hspace) and avoid plt.tight_layout() which
-        # can emit warnings for complex shared axes; rely on subplots_adjust if needed.
         fig.subplots_adjust(hspace=0.25)
         fig.savefig(out)
         plt.close(fig)
