@@ -167,6 +167,9 @@ class TrendEntryRunner(AlertBaseRunner):
             logger.warning(f"[{self.ix.id}] Trend entry not evaluated: {e}")
             return
 
+        # Alias MA200 series for later Option checks
+        ma200_series = ma_series if ma_series is not None else None
+
         # Determine hold window indices (last N days used in compute_trend_entry)
         hold_indices = None
         cross_idx = None
@@ -178,6 +181,83 @@ class TrendEntryRunner(AlertBaseRunner):
         except Exception:
             hold_indices = None
             cross_idx = None
+
+        # --- Additional indicators for Options A/B ---
+        # MA50
+        try:
+            ma50 = series.rolling(50, min_periods=1).mean().dropna()
+        except Exception:
+            ma50 = None
+
+        # RSI(14)
+        def compute_rsi(s: pd.Series, window: int = 14) -> pd.Series:
+            delta = s.diff()
+            up = delta.clip(lower=0.0)
+            down = -delta.clip(upper=0.0)
+            ma_up = up.ewm(alpha=1/window, adjust=False).mean()
+            ma_down = down.ewm(alpha=1/window, adjust=False).mean()
+            rs = ma_up / ma_down
+            rsi = 100 - (100 / (1 + rs))
+            return rsi
+
+        try:
+            rsi14 = compute_rsi(series, window=14)
+        except Exception:
+            rsi14 = None
+
+        # Option A: price previously dropped below MA200, now closes above MA50 while MA50 rising
+        opt_a = False
+        try:
+            if ma50 is not None and ma200_series is not None:
+                # lookback window to detect prior below-200 condition
+                lookback_days = 60
+                lookback_idx = series.index[-lookback_days:] if len(series.index) >= lookback_days else series.index
+                past_below = (series.reindex(lookback_idx) < ma200_series.reindex(lookback_idx)).any()
+                idx = today_idx
+                if idx in ma50.index and len(ma50.index) > 1:
+                    pos = ma50.index.get_loc(idx)
+                    if pos > 0:
+                        ma50_today = float(ma50.iloc[pos])
+                        ma50_prev = float(ma50.iloc[pos - 1])
+                        close_now = float(series.loc[idx])
+                        if close_now > ma50_today and ma50_today > ma50_prev and past_below:
+                            opt_a = True
+        except Exception:
+            opt_a = False
+
+        # Option B: RSI dip below 40 then break above 50
+        opt_b = False
+        try:
+            if rsi14 is not None and today_idx in rsi14.index:
+                lookback = 30
+                rsi_window = rsi14.dropna()
+                recent = rsi_window.iloc[-lookback:] if len(rsi_window) >= lookback else rsi_window
+                dipped = (recent < 40).any()
+
+                # Robustly get the last occurrence position for today_idx (handles duplicate indices)
+                idx_positions = [i for i, x in enumerate(rsi14.index) if x == today_idx]
+                if idx_positions:
+                    pos = idx_positions[-1]
+                    v = rsi14.iloc[pos]
+                    curr_rsi = float(v.item() if hasattr(v, "item") else v)
+                    if pos > 0:
+                        pv = rsi14.iloc[pos - 1]
+                        prev_rsi = float(pv.item() if hasattr(pv, "item") else pv)
+                    else:
+                        prev_rsi = None
+                else:
+                    # Fallback: try to coerce via .loc then take first element
+                    vals = rsi14.loc[today_idx]
+                    if isinstance(vals, pd.Series):
+                        curr_rsi = float(vals.iloc[-1])
+                    else:
+                        curr_rsi = float(vals)
+                    prev_rsi = None
+
+                if dipped and curr_rsi > 50 and (prev_rsi is None or prev_rsi <= 50):
+                    opt_b = True
+        except Exception:
+            opt_b = False
 
         # Load state
         state = load_state(self.ix)
@@ -225,6 +305,10 @@ class TrendEntryRunner(AlertBaseRunner):
                     ma_series,
                     hold_indices=hold_indices,
                     cross_idx=cross_idx,
+                    ma50=ma50,
+                    rsi=rsi14,
+                    opt_a=opt_a,
+                    opt_b=opt_b,
                     title=plot_title,
                 )
                 if show_plot:
@@ -274,6 +358,10 @@ class TrendEntryRunner(AlertBaseRunner):
                     ma_series,
                     hold_indices=hold_indices,
                     cross_idx=cross_idx,
+                    ma50=ma50,
+                    rsi=rsi14,
+                    opt_a=opt_a,
+                    opt_b=opt_b,
                     title=plot_title,
                 )
                 self.open_plot(plot_path)
@@ -295,6 +383,10 @@ class TrendEntryRunner(AlertBaseRunner):
                     ma_series,
                     hold_indices=hold_indices,
                     cross_idx=cross_idx,
+                    ma50=ma50,
+                    rsi=rsi14,
+                    opt_a=opt_a,
+                    opt_b=opt_b,
                     title=plot_title,
                 )
                 self.open_plot(plot_path)
@@ -313,6 +405,10 @@ class TrendEntryRunner(AlertBaseRunner):
                 ma_series,
                 hold_indices=hold_indices,
                 cross_idx=cross_idx,
+                ma50=ma50,
+                rsi=rsi14,
+                opt_a=opt_a,
+                opt_b=opt_b,
                 title=plot_title,
             )
             if show_plot:
