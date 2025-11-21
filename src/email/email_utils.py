@@ -214,7 +214,15 @@ def send_email(
 
     # HTML part
     if html_kwargs:
-        html = build_html_email(**html_kwargs, cid=cid)
+        try:
+            html = build_html_email(**html_kwargs, cid=cid)
+        except Exception as e:  # noqa: BLE001
+            logger.warning(f"Falling back to plain-text HTML wrapper (build_html_email failed): {e}")
+            html = (
+                "<div style='color:#111;font:14px/1.45 "
+                "-apple-system,Segoe UI,Roboto,Helvetica,Arial;white-space:pre-wrap'>"
+                f"{body_text}</div>"
+            )
     else:
         html = (
             "<div style='color:#111;font:14px/1.45 "
@@ -228,23 +236,34 @@ def send_email(
     if INLINE_IMAGE and inline_path and inline_path.exists() and cid:
         rel = MIMEMultipart("related")
         rel.attach(alt)
-        with inline_path.open("rb") as f:
-            img = MIMEImage(f.read(), name=inline_path.name)
-        img.add_header("Content-ID", f"<{cid}>")
-        img.add_header("Content-Disposition", "inline", filename=inline_path.name)
-        rel.attach(img)
-        msg_root.attach(rel)
+        try:
+            with inline_path.open("rb") as f:
+                img = MIMEImage(f.read(), name=inline_path.name)
+            img.add_header("Content-ID", f"<{cid}>")
+            img.add_header("Content-Disposition", "inline", filename=inline_path.name)
+            rel.attach(img)
+            msg_root.attach(rel)
+        except Exception as e:  # noqa: BLE001
+            logger.warning(f"Failed to attach inline image {inline_path!s}: {e}")
+            msg_root.attach(alt)
     else:
         msg_root.attach(alt)
 
     # Attachments (plots, etc.)
     for p in attachments or []:
-        if not p:
+        if not isinstance(p, Path):
+            logger.warning(f"Ignoring non-Path attachment entry: {p!r}")
             continue
-        with p.open("rb") as f:
-            part = MIMEApplication(f.read(), _subtype="octet-stream")
-        part.add_header("Content-Disposition", "attachment", filename=p.name)
-        msg_root.attach(part)
+        if not p.exists():
+            logger.warning(f"Attachment path does not exist, skipping: {p!s}")
+            continue
+        try:
+            with p.open("rb") as f:
+                part = MIMEApplication(f.read(), _subtype="octet-stream")
+            part.add_header("Content-Disposition", "attachment", filename=p.name)
+            msg_root.attach(part)
+        except Exception as e:  # noqa: BLE001
+            logger.warning(f"Failed to attach file {p!s}: {e}")
 
     # DRY_RUN: only log, don't send
     if DRY_RUN:
@@ -252,7 +271,11 @@ def send_email(
         return
 
     # Simpler SSL handling: rely on system / Python defaults (what worked for you before)
-    with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
-        server.login(from_email, app_pass)
-        server.send_message(msg_root)
-        logger.info(f"Email sent to {to_email} (subject: {subject})")
+    try:
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+            server.login(from_email, app_pass)
+            server.send_message(msg_root)
+            logger.info(f"Email sent to {to_email} (subject: {subject})")
+    except smtplib.SMTPException as e:
+        logger.error(f"SMTP error while sending email to {to_email}: {e}")
+        raise
