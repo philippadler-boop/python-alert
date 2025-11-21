@@ -118,6 +118,11 @@ def make_trend_entry_body(
     checklist: List[str],
     *,
     is_test: bool = False,
+    ma50: Optional[float] = None,
+    rsi: Optional[float] = None,
+    include_condition: bool = False,
+    opt_a: bool = False,
+    opt_b: bool = False,
 ) -> str:
     """Plain-text body for MA200-based trend entry alerts."""
     direction = "above" if pct_diff >= 0 else "below"
@@ -127,12 +132,46 @@ def make_trend_entry_body(
         f"Close: {close:.2f}",
         f"200-day MA: {ma200:.2f}",
         f"Distance: {pct_diff:.2f}% {direction} MA200",
-        "",
-        f"Condition: Close crossed from below to above the 200-day MA "
-        f"and stayed above for {hold_days} consecutive trading days.",
-        "",
-        "Next steps — manual checklist:",
     ]
+
+    # Place MA50/RSI immediately below the distance line for quick visibility
+    if ma50 is not None:
+        lines.append(f"50-day MA: {ma50:.2f}")
+    if rsi is not None:
+        lines.append(f"RSI(14): {rsi:.1f}")
+
+    lines.extend(["",])
+
+    # Optionally include the human-readable condition statement when requested
+    if include_condition:
+        # Dynamic Condition: show A, B, or both depending on flags
+        if opt_a and opt_b:
+            lines.append("Condition: Options A & B are met:")
+            lines.append(
+                "- Option A: Price had previously fallen below the 200-day MA, "
+                "and now the close is above the 50-day MA while the 50-day MA is rising."
+            )
+            lines.append(
+                "- Option B: The 14-day RSI dipped below 40 in the recent window "
+                "and has reclaimed above 50, indicating renewed upward momentum."
+            )
+        elif opt_a:
+            lines.append(
+                "Condition: Option A: Price had previously fallen below the 200-day MA, "
+                "and now the close is above the 50-day MA while the 50-day MA is rising."
+            )
+        elif opt_b:
+            lines.append(
+                "Condition: Option B: The 14-day RSI dipped below 40 in the recent window "
+                "and has reclaimed above 50, indicating renewed upward momentum."
+            )
+        else:
+            # Fallback: no specific option flagged — keep a neutral informative line
+            lines.append(
+                "Condition: No Option A/B conditions detected. Review the checklist for manual steps."
+            )
+
+    lines.extend(["", "Next steps — manual checklist:"])
     for item in checklist:
         lines.append(f"- {item}")
     lines.append("")

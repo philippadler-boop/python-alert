@@ -295,6 +295,25 @@ class TrendEntryRunner(AlertBaseRunner):
         # -------------- TEST MODE: always send email, optional plot --------------
         plot_path: Path | None = None
 
+        # Prepare scalar indicator values for emails/plots
+        ma50_today: float | None = None
+        if ma50 is not None and today_idx in ma50.index:
+            try:
+                v = ma50.loc[today_idx]
+                val = v.item() if hasattr(v, "item") else (v.iloc[-1] if isinstance(v, pd.Series) else v)
+                ma50_today = float(val)
+            except Exception:
+                ma50_today = None
+
+        rsi_today: float | None = None
+        if rsi14 is not None and today_idx in rsi14.index:
+            try:
+                v = rsi14.loc[today_idx]
+                val = v.item() if hasattr(v, "item") else (v.iloc[-1] if isinstance(v, pd.Series) else v)
+                rsi_today = float(val)
+            except Exception:
+                rsi_today = None
+
         if is_test:
             # In test mode we almost always want a plot (for inspection and attachments)
             if SAVE_PLOTS or show_plot or ATTACH_PLOT_ON_TEST:
@@ -314,6 +333,10 @@ class TrendEntryRunner(AlertBaseRunner):
                 if show_plot:
                     self.open_plot(plot_path)
 
+            # For TEST emails we want to demonstrate both Option A and B
+            test_opt_a = True
+            test_opt_b = True
+
             subject = make_trend_entry_subject(self.ix, is_test=True)
             body = make_trend_entry_body(
                 self.ix,
@@ -323,6 +346,11 @@ class TrendEntryRunner(AlertBaseRunner):
                 profile.hold_days,
                 checklist,
                 is_test=True,
+                ma50=ma50_today,
+                rsi=rsi_today,
+                include_condition=True,
+                opt_a=test_opt_a,
+                opt_b=test_opt_b,
             )
 
             attachments = None
@@ -346,7 +374,8 @@ class TrendEntryRunner(AlertBaseRunner):
 
         # -------------- LIVE MODE: only create plot when useful --------------
 
-        cond_met = all_above and crossed_from_below
+        # Alert when Option A (MA200 drop then MA50 reclaim + rising) or Option B (RSI dip/reclaim)
+        cond_met = bool(opt_a) or bool(opt_b)
 
         if not cond_met:
             # No alert; only create a plot if user explicitly asked to see it
@@ -423,6 +452,11 @@ class TrendEntryRunner(AlertBaseRunner):
             profile.hold_days,
             checklist,
             is_test=False,
+            ma50=ma50_today,
+            rsi=rsi_today,
+            include_condition=True,
+            opt_a=opt_a,
+            opt_b=opt_b,
         )
 
         attachments_live = [plot_path] if plot_path is not None else None
