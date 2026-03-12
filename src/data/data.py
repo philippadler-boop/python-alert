@@ -12,26 +12,60 @@ def fetch_series(ix: IndexConfig = SPX_INDEX) -> pd.Series:
     end = dt.date.today()
     start = end - dt.timedelta(days=int(lookback_days))
 
+    def _extract_close(data: pd.DataFrame | None) -> pd.Series | None:
+        """Extract the close series from yfinance output."""
+        if data is None or data.empty:
+            return None
+
+        close = data.get("Adj Close")
+        if close is None or close.empty:
+            close = data.get("Close")
+
+        if close is None or close.empty:
+            return None
+
+        close = close.dropna()
+        close.index = pd.to_datetime(close.index)
+        return close.sort_index()
+
+    def _try_download(start_date: dt.date, end_date: dt.date) -> pd.Series | None:
+        """Try to fetch price history from yfinance.
+
+        Uses two methods: yf.download() (preferred) and yf.Ticker.history() as a fallback.
+        """
+        logger.debug(f"Attempt yfinance.download for {ix.ticker}")
+        data = yf.download(
+            ix.ticker,
+            start=start_date,
+            end=end_date,
+            progress=False,
+            auto_adjust=False,
+            timeout=YFINANCE_TIMEOUT_SECONDS,
+        )
+        close = _extract_close(data)
+        if close is not None:
+            return close
+
+        logger.debug(f"yfinance.download returned no data for {ix.ticker}, trying Ticker.history() fallback")
+        try:
+            ticker = yf.Ticker(ix.ticker)
+            data = ticker.history(
+                start=start_date,
+                end=end_date,
+                auto_adjust=False,
+                interval="1d",
+            )
+            return _extract_close(data)
+        except Exception:
+            return None
+
     last_exc = None
     for attempt in range(1, YFINANCE_RETRY_ATTEMPTS + 1):
         try:
             logger.info(f"Fetching {ix.ticker} (attempt {attempt}) from {start} to {end}...")
-            data = yf.download(ix.ticker, start=start, end=end, progress=False, auto_adjust=False, timeout=YFINANCE_TIMEOUT_SECONDS)
-
-            if data is None or data.empty:
+            close = _try_download(start, end)
+            if close is None or close.empty:
                 raise RuntimeError("Empty result")
-
-            # SAFE SELECTION — no 'or' anymore
-            close = data.get("Adj Close")
-            if close is None or close.empty:
-                close = data.get("Close")
-
-            if close is None or close.empty:
-                raise RuntimeError("Close price not found in downloaded data")
-
-            close = close.dropna()
-            close.index = pd.to_datetime(close.index)
-            close = close.sort_index()
 
             logger.info(f"Fetched {len(close)} points for {ix.id} (last date: {close.index[-1].date()})")
             return close
