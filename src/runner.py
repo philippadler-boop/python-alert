@@ -13,29 +13,34 @@ def _run_single_index(ix, args, peak_window: str, *, mode: str) -> None:
     clean_old_plots(ix.plots_dir)
     clean_old_log_rows(ix)
 
-    if mode == "dip":
-        runner = DipAlertRunner(ix, peak_window=peak_window)
-        if getattr(args, "test", False):
-            # Simple SMTP / dip wiring test
-            runner.run_test_email()
-        elif getattr(args, "test_bucket", None):
-            runner.run_test_bucket(args.test_bucket, args.show_plot)
-        else:
+    try:
+        if mode == "dip":
+            runner = DipAlertRunner(ix, peak_window=peak_window)
+            if getattr(args, "test", False):
+                # Simple SMTP / dip wiring test
+                runner.run_test_email()
+            elif getattr(args, "test_bucket", None):
+                runner.run_test_bucket(args.test_bucket, args.show_plot)
+            else:
+                runner.run(show_plot=args.show_plot)
+            return
+
+        if mode == "trend":
+            runner = TrendEntryRunner(ix)
+            runner.run(
+                series=None,
+                is_test=getattr(args, "test", False),
+                show_plot=args.show_plot,
+            )
+            return
+
+        if mode == "both":
+            runner = CombinedRunner(ix, peak_window=peak_window)
             runner.run(show_plot=args.show_plot)
-        return
+            return
 
-    if mode == "trend":
-        runner = TrendEntryRunner(ix)
-        runner.run(
-            series=None,
-            is_test=getattr(args, "test", False),
-            show_plot=args.show_plot,
-        )
-        return
-
-    if mode == "both":
-        runner = CombinedRunner(ix, peak_window=peak_window)
-        runner.run(show_plot=args.show_plot)
+    except Exception as e:
+        logger.error(f"Failed running alerts for index '{ix.id}': {e}")
         return
 
 
