@@ -88,6 +88,11 @@ class TestGetBucketsForIndex(unittest.TestCase):
         buckets = get_buckets_for_index("ndx")
         self.assertEqual(buckets, DEFAULT_BUCKETS)
 
+    def test_sxxp_buckets(self):
+        """Test STOXX600 (SXXP) uses DEFAULT_BUCKETS."""
+        buckets = get_buckets_for_index("sxxp")
+        self.assertEqual(buckets, DEFAULT_BUCKETS)
+
     def test_sox_buckets(self):
         """Test SOX uses custom SOX_BUCKETS."""
         buckets = get_buckets_for_index("sox")

@@ -174,6 +174,17 @@ NDX_INDEX: IndexConfig = IndexConfig(
     log_csv=LOGS_DIR / "ndx_dip_alert_log.csv",
     plots_dir=PLOTS_DIR / "ndx",
 )
+
+STOXX_INDEX: IndexConfig = IndexConfig(
+    id="sxxp",
+    name="STOXX Europe 600",
+    ticker="SXXP",
+    lookback_days=LOOKBACK_DAYS,
+    state_file=STATE_DIR / "sxxp_alert_state.json",
+    log_csv=LOGS_DIR / "sxxp_dip_alert_log.csv",
+    plots_dir=PLOTS_DIR / "sxxp",
+)
+
 SOX_INDEX: IndexConfig = IndexConfig(
     id="sox",
     name="PHLX Semiconductor",
@@ -240,6 +251,7 @@ BTC_INDEX: IndexConfig = IndexConfig(
 INDEXES: Dict[str, IndexConfig] = {
     "spx": SPX_INDEX,
     "ndx": NDX_INDEX,
+    "sxxp": STOXX_INDEX,
     "sox": SOX_INDEX,
     "srvr": SRVR_INDEX,
     "sruuf": SRUUF_INDEX,
