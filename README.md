@@ -19,7 +19,8 @@ Preconfigured for:
 - **SRVR** (Data Centers & Digital Infrastructure ETF)
 - **SRUUF** (Sprott Physical Uranium exposure / uranium theme)
 - **REMX** (Rare Earth & Strategic Metals ETF)
-- **SXXP** (STOXX Europe 600 ETF)
+- **SXXP** (STOXX Europe 600 — ticker ^STOXX)
+- **AWDPACXJ** (ticker AWDPACXJ.FGI)
 
 ---
 

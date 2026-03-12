@@ -178,7 +178,7 @@ NDX_INDEX: IndexConfig = IndexConfig(
 STOXX_INDEX: IndexConfig = IndexConfig(
     id="sxxp",
     name="STOXX Europe 600",
-    ticker="SXXP",
+    ticker="^STOXX",
     lookback_days=LOOKBACK_DAYS,
     state_file=STATE_DIR / "sxxp_alert_state.json",
     log_csv=LOGS_DIR / "sxxp_dip_alert_log.csv",
@@ -225,6 +225,16 @@ REMX_INDEX: IndexConfig = IndexConfig(
     plots_dir=PLOTS_DIR / "remx",
 )
 
+AWDPACXJ_INDEX: IndexConfig = IndexConfig(
+    id="awdpacxj",
+    name="FTSE Developed Asia Pacific ex Japan",
+    ticker="AWDPACXJ.FGI",
+    lookback_days=LOOKBACK_DAYS,
+    state_file=STATE_DIR / "awdpacxj_alert_state.json",
+    log_csv=LOGS_DIR / "awdpacxj_dip_alert_log.csv",
+    plots_dir=PLOTS_DIR / "awdpacxj",
+)
+
 
 UFO_INDEX: IndexConfig = IndexConfig(
     id="ufo",
@@ -258,6 +268,7 @@ INDEXES: Dict[str, IndexConfig] = {
     "remx": REMX_INDEX,
     "ufo": UFO_INDEX,
     "btc": BTC_INDEX,
+    "awdpacxj": AWDPACXJ_INDEX,
 }
 
 # Default index id
