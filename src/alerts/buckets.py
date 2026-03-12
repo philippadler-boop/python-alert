@@ -112,6 +112,7 @@ BUCKETS_BY_INDEX_ID: Dict[str, List[Bucket]] = {
     # Baseline: SPX / NDX (and similar broad equity indices)
     "spx": DEFAULT_BUCKETS,
     "ndx": DEFAULT_BUCKETS,
+    "sxxp": DEFAULT_BUCKETS,
     "awdpacxj": DEFAULT_BUCKETS,
     "msci_imi": DEFAULT_BUCKETS,
 
