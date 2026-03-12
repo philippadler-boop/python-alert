@@ -46,16 +46,30 @@ def fetch_series(ix: IndexConfig = SPX_INDEX) -> pd.Series:
         if close is not None:
             return close
 
-        logger.debug(f"yfinance.download returned no data for {ix.ticker}, trying Ticker.history() fallback")
+        logger.debug(f"yfinance.download returned no data for {ix.ticker}, trying Ticker.history() fallbacks")
         try:
             ticker = yf.Ticker(ix.ticker)
+
+            # 1) Try the full date range (same as download)
             data = ticker.history(
                 start=start_date,
                 end=end_date,
                 auto_adjust=False,
                 interval="1d",
             )
-            return _extract_close(data)
+            close = _extract_close(data)
+            if close is not None and not close.empty:
+                return close
+
+            # 2) Some tickers only respond to short-period queries (e.g., delisted/limited history)
+            for period in ["5d", "1d"]:
+                logger.debug(f"Trying Ticker.history(period='{period}') for {ix.ticker}")
+                data = ticker.history(period=period, auto_adjust=False, interval="1d")
+                close = _extract_close(data)
+                if close is not None and not close.empty:
+                    return close
+
+            return None
         except Exception:
             return None
 
