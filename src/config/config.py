@@ -235,6 +235,16 @@ AWDPACXJ_INDEX: IndexConfig = IndexConfig(
     plots_dir=PLOTS_DIR / "awdpacxj",
 )
 
+MSCI_IMI_INDEX: IndexConfig = IndexConfig(
+    id="msci_imi",
+    name="MSCI Emerging Markets IMI",
+    ticker="^664325-USD-STRD",
+    lookback_days=LOOKBACK_DAYS,
+    state_file=STATE_DIR / "msci_imi_alert_state.json",
+    log_csv=LOGS_DIR / "msci_imi_dip_alert_log.csv",
+    plots_dir=PLOTS_DIR / "msci_imi",
+)
+
 
 UFO_INDEX: IndexConfig = IndexConfig(
     id="ufo",
@@ -269,6 +279,7 @@ INDEXES: Dict[str, IndexConfig] = {
     "ufo": UFO_INDEX,
     "btc": BTC_INDEX,
     "awdpacxj": AWDPACXJ_INDEX,
+    "msci_imi": MSCI_IMI_INDEX,
 }
 
 # Default index id

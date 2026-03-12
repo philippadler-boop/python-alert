@@ -21,6 +21,7 @@ Preconfigured for:
 - **REMX** (Rare Earth & Strategic Metals ETF)
 - **SXXP** (STOXX Europe 600 — ticker ^STOXX)
 - **AWDPACXJ** (ticker AWDPACXJ.FGI)
+- **MSCI Emerging Markets IMI** (ticker ^664325-USD-STRD)
 
 ---
 

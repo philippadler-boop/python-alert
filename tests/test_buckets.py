@@ -98,6 +98,11 @@ class TestGetBucketsForIndex(unittest.TestCase):
         buckets = get_buckets_for_index("awdpacxj")
         self.assertEqual(buckets, DEFAULT_BUCKETS)
 
+    def test_msci_imi_buckets(self):
+        """Test MSCI Emerging Markets IMI uses DEFAULT_BUCKETS."""
+        buckets = get_buckets_for_index("msci_imi")
+        self.assertEqual(buckets, DEFAULT_BUCKETS)
+
     def test_sox_buckets(self):
         """Test SOX uses custom SOX_BUCKETS."""
         buckets = get_buckets_for_index("sox")
