@@ -226,7 +226,7 @@ REMX_INDEX: IndexConfig = IndexConfig(
 )
 
 AWDPACXJ_INDEX: IndexConfig = IndexConfig(
-    id="awdpacxj",
+    id="FTS_Dev_Asia_Pac_ex_Japan",
     name="FTSE Developed Asia Pacific ex Japan",
     ticker="VGEK.DE",
     lookback_days=LOOKBACK_DAYS,
