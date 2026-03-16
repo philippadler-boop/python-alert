@@ -20,7 +20,7 @@ from ..email.email_utils import (
     make_trend_entry_body,
 )
 from ..plotting.plotting import make_trend_plot
-from ..logging import logger
+from ..logging.logger import logger
 
 
 @dataclass(frozen=True)

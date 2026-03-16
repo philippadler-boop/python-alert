@@ -5,7 +5,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.ticker import MaxNLocator
 from ..config.config import now_str, DIP_PLOT_LOOKBACK_DAYS, TREND_PLOT_LOOKBACK_DAYS
-from ..logging import logger
+from ..logging.logger import logger
 
 def _make_path(ix, prefix):
     ts=now_str().replace(':','').replace('-','').replace('T','_')

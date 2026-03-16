@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Optional
 
 from ..config.config import LOCAL_TZ, RETENTION_DAYS, now_str, SPX_INDEX, IndexConfig
-from ..logging import logger
+from .logger import logger
 from ..alerts.buckets import Bucket
 
 

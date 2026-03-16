@@ -6,7 +6,7 @@ from pathlib import Path
 import pandas as pd
 from ..config.config import IndexConfig
 from ..data import fetch_series
-from ..logging import logger
+from ..logging.logger import logger
 
 class AlertBaseRunner(ABC):
     def __init__(self, ix: IndexConfig, peak_window=None):

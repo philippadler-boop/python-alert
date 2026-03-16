@@ -14,7 +14,7 @@ from email.mime.application import MIMEApplication
 from email.utils import make_msgid
 
 from ..config.config import DRY_RUN, INLINE_IMAGE, now_str, IndexConfig
-from ..logging import logger
+from ..logging.logger import logger
 from ..alerts.buckets import Bucket
 
 

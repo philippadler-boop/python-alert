@@ -13,7 +13,7 @@ from ..data import compute_drawdown, apply_peak_window, compute_uranium_spot_fro
 from ..email.email_utils import send_email, make_email_subject, make_email_body
 from ..logging.logging_utils import append_csv_log
 from ..plotting import make_alert_plot
-from ..logging import logger
+from ..logging.logger import logger
 
 
 class DipAlertRunner(AlertBaseRunner):

@@ -4,7 +4,7 @@ import datetime as dt, time
 from typing import Tuple
 import pandas as pd, yfinance as yf
 from ..config.config import SPX_INDEX, IndexConfig, now_str, YFINANCE_TIMEOUT_SECONDS, YFINANCE_RETRY_ATTEMPTS, YFINANCE_RETRY_DELAY_SECONDS
-from ..logging import logger
+from ..logging.logger import logger
 
 def fetch_series(ix: IndexConfig = SPX_INDEX) -> pd.Series:
     lookback_days = getattr(ix, "lookback_days", 1095)
